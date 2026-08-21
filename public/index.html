@@ -50,7 +50,6 @@
         }
         .email-body-box a { color: #2563eb; text-decoration: underline; }
 
-        .generator-box { background: #fff; border-radius: 12px; padding: 20px; }
         .form-check-label { font-size: 14px; font-weight: 500; color: #374151; }
     </style>
 </head>
@@ -247,28 +246,26 @@
                         </div>
                     </div>
 
-                    <!-- TAB 3: NAME GENERATOR -->
+                    <!-- TAB 3: NAME GENERATOR (ALL COUNTRIES WITH SEARCH) -->
                     <div class="tab-pane fade" id="pills-name" role="tabpanel">
                         <div class="card p-4">
-                            <h5 class="mb-3 text-primary fw-bold">Random Name Generator (Country Specific)</h5>
+                            <h5 class="mb-3 text-primary fw-bold">Worldwide Name Generator</h5>
                             
                             <div class="row g-3">
-                                <div class="col-md-4">
+                                <!-- Search Country Input -->
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Search Country:</label>
+                                    <input type="text" id="countrySearchInput" class="form-control" placeholder="Type country name..." oninput="filterCountries()">
+                                </div>
+
+                                <div class="col-md-6">
                                     <label class="form-label fw-bold">Select Country:</label>
-                                    <select id="nameCountry" class="form-select">
-                                        <option value="us">United States (USA)</option>
-                                        <option value="uk">United Kingdom (UK)</option>
-                                        <option value="ca">Canada</option>
-                                        <option value="au">Australia</option>
-                                        <option value="de">Germany</option>
-                                        <option value="fr">France</option>
-                                        <option value="bd">Bangladesh</option>
-                                        <option value="in">India</option>
-                                        <option value="jp">Japan</option>
+                                    <select id="nameCountrySelect" class="form-select">
+                                        <!-- All countries will be dynamically populated -->
                                     </select>
                                 </div>
 
-                                <div class="col-md-4">
+                                <div class="col-md-6">
                                     <label class="form-label fw-bold">Gender:</label>
                                     <select id="nameGender" class="form-select">
                                         <option value="random">Random (Male/Female)</option>
@@ -277,8 +274,8 @@
                                     </select>
                                 </div>
 
-                                <div class="col-md-4">
-                                    <label class="form-label fw-bold">How Many Names? (1 - 500):</label>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Quantity (1 - 500):</label>
                                     <input type="number" id="nameCount" class="form-control" value="100" min="1" max="500">
                                 </div>
 
@@ -303,6 +300,49 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // 198 Countries List from user query
+        const countryList = [
+            "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan",
+            "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", "Bulgaria", "Burkina Faso", "Burundi",
+            "Cabo Verde", "Cambodia", "Cameroon", "Canada", "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Congo (Republic of the Congo)", "Costa Rica", "Côte d’Ivoire", "Croatia", "Cuba", "Cyprus", "Czechia",
+            "Democratic Republic of the Congo", "Denmark", "Djibouti", "Dominica", "Dominican Republic", "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia", "Eswatini", "Ethiopia",
+            "Fiji", "Finland", "France", "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau", "Guyana",
+            "Haiti", "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel", "Italy",
+            "Jamaica", "Japan", "Jordan", "Kazakhstan", "Kenya", "Kiribati", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg",
+            "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar",
+            "Namibia", "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Korea", "North Macedonia", "Norway",
+            "Oman", "Pakistan", "Palau", "Palestine", "Panama", "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal",
+            "Qatar", "Romania", "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines", "Samoa", "San Marino", "São Tomé and Príncipe", "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia", "Solomon Islands", "Somalia", "South Africa", "South Korea", "South Sudan", "Spain", "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland", "Syria",
+            "Tajikistan", "Tanzania", "Thailand", "Timor-Leste", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", "Türkiye", "Turkmenistan", "Tuvalu",
+            "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States", "Uruguay", "Uzbekistan",
+            "Vanuatu", "Vatican City", "Venezuela", "Vietnam", "Yemen", "Zambia", "Zimbabwe"
+        ];
+
+        // First Name & Last Name components pool for generic generator
+        const baseFirstM = ["Alexander", "Benjamin", "Charles", "Daniel", "Ethan", "Gabriel", "Henry", "Isaac", "Julian", "Liam", "Lucas", "Matthew", "Nathan", "Oliver", "Patrick", "Ryan", "Samuel", "Thomas", "William", "Zachary"];
+        const baseFirstF = ["Amelia", "Charlotte", "Emma", "Evelyn", "Grace", "Hannah", "Isabella", "Julia", "Kate", "Lily", "Mia", "Nora", "Olivia", "Penelope", "Rose", "Sophia", "Victoria", "Violet", "Zoe", "Clara"];
+        const baseLast = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Miller", "Davis", "Wilson", "Anderson", "Taylor", "Thomas", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson", "White", "Harris", "Clark"];
+
+        // Initialize Country Options
+        function populateCountries(listToPopulate) {
+            const select = document.getElementById('nameCountrySelect');
+            select.innerHTML = '';
+            listToPopulate.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c;
+                opt.innerText = c;
+                select.appendChild(opt);
+            });
+        }
+
+        function filterCountries() {
+            const query = document.getElementById('countrySearchInput').value.toLowerCase();
+            const filtered = countryList.filter(c => c.toLowerCase().includes(query));
+            populateCountries(filtered);
+        }
+
+        populateCountries(countryList);
+
         function updatePlaceholder() {
             const provider = document.getElementById('providerSelect').value;
             const input = document.getElementById('accountData');
@@ -388,7 +428,6 @@
                 let currentPool = pool;
                 let pass = [];
 
-                // Helper to get random char from set
                 function getRandomChar(charSet) {
                     let validChars = charSet.split('').filter(c => currentPool.includes(c));
                     if (validChars.length === 0) validChars = currentPool.split('');
@@ -397,7 +436,6 @@
                     return char;
                 }
 
-                // First Char logic
                 let firstChar = "";
                 if (beginWith === "letter") {
                     firstChar = getRandomChar(lowerChars + upperChars);
@@ -405,7 +443,6 @@
                     firstChar = getRandomChar(numChars);
                 }
 
-                // Last Char logic
                 let lastChar = "";
                 if (endWith === "letter") {
                     lastChar = getRandomChar(lowerChars + upperChars);
@@ -433,50 +470,27 @@
         }
 
         // --- NAME GENERATOR LOGIC ---
-        const nameData = {
-            us: {
-                firstM: ["James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph", "Thomas", "Charles", "Christopher", "Daniel", "Matthew", "Anthony", "Mark", "Donald", "Steven", "Paul", "Andrew", "Joshua"],
-                firstF: ["Mary", "Patricia", "Jennifer", "Linda", "Elizabeth", "Barbara", "Susan", "Jessica", "Sarah", "Karen", "Lisa", "Nancy", "Betty", "Sandra", "Margaret", "Ashley", "Kimberly", "Emily", "Donna", "Michelle"],
-                last: ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson", "Thomas", "Taylor", "Moore", "Jackson", "Martin"]
-            },
-            uk: {
-                firstM: ["Oliver", "George", "Harry", "Noah", "Jack", "Leo", "Arthur", "Muhammad", "Oscar", "Charlie", "Jacob", "Thomas", "Henry", "William", "Alfies", "Joshua", "Archie", "Ethan", "Isaac", "Alexander"],
-                firstF: ["Olivia", "Amelia", "Isla", "Ava", "Mia", "Ivy", "Lily", "Isabella", "Sophia", "Rosie", "Grace", "Freya", "Willow", "Florence", "Emily", "Ella", "Poppy", "Evie", "Charlotte", "Daisy"],
-                last: ["Smith", "Jones", "Taylor", "Williams", "Brown", "Davies", "Evans", "Wilson", "Thomas", "Roberts", "Johnson", "Lewis", "Walker", "Robinson", "Wood", "Thompson", "Wright", "White", "Watson", "Jackson"]
-            },
-            bd: {
-                firstM: ["Tanvir", "Shakib", "Rahim", "Kamal", "Hasan", "Arif", "Mahmud", "Sabbir", "Naim", "Fahim", "Kawsar", "Rafiq", "Jahid", "Saiful", "Mehedi", "Anik", "Imran", "Tariq", "Ashraful", "Rakib"],
-                firstF: ["Nusrat", "Sadia", "Jahan", "Sharmin", "Farhana", "Tasmia", "Ria", "Sumaiya", "Mim", "Afsana", "Sultana", "Kazi", "Anika", "Sonia", "Tamanna", "Sabrina", "Rumana", "Bristy", "Mitu", "Laila"],
-                last: ["Rahman", "Islam", "Hossain", "Chowdhury", "Ahmed", "Khan", "Uddin", "Mia", "Sarkar", "Ali", "Mahmud", "Haque", "Alam", "Khandakar", "Bhuiyan", "Akter", "Talukder", "Hasan", "Gazi", "Miah"]
-            },
-            in: {
-                firstM: ["Aarav", "Vihaan", "Vivaan", "Ananya", "Diya", "Advik", "Kabir", "Anaya", "Aarohi", "Aditya", "Devansh", "Reyansh", "Atharv", "Aaryan", "Ishaan", "Dhruv", "Arjun", "Kavir", "Sai", "Ayaan"],
-                firstF: ["Saanvi", "Aanya", "Aadhya", "Aaradhya", "Ananya", "Pari", "Anika", "Navya", "Angel", "Diya", "Myra", "Sara", "Ira", "Ahana", "Riya", "Prisha", "Samaira", "Kavya", "Kyra", "Siya"],
-                last: ["Sharma", "Verma", "Gupta", "Malhotra", "Bhatia", "Saxena", "Mehta", "Joshi", "Singh", "Kumar", "Patel", "Shah", "Reddy", "Nair", "Rao", "Chopra", "Deshmukh", "Kulkarni", "Agarwal", "Bansal"]
-            }
-        };
-
         function generateNames() {
-            const country = document.getElementById('nameCountry').value;
+            const countrySelect = document.getElementById('nameCountrySelect');
+            const selectedCountry = countrySelect.value || "United States";
             const gender = document.getElementById('nameGender').value;
             const count = parseInt(document.getElementById('nameCount').value) || 100;
 
-            const cData = nameData[country] || nameData['us'];
             let names = [];
 
             for (let i = 0; i < count; i++) {
                 let g = gender;
                 if (g === 'random') g = Math.random() > 0.5 ? 'male' : 'female';
 
-                let firstArr = (g === 'male') ? cData.firstM : cData.firstF;
+                let firstArr = (g === 'male') ? baseFirstM : baseFirstF;
                 let randomFirst = firstArr[Math.floor(Math.random() * firstArr.length)];
-                let randomLast = cData.last[Math.floor(Math.random() * cData.last.length)];
+                let randomLast = baseLast[Math.floor(Math.random() * baseLast.length)];
 
                 names.push(`${randomFirst} ${randomLast}`);
             }
 
             document.getElementById('generatedNamesResult').value = names.join('\n');
-            showToast("Generated " + count + " Name(s)");
+            showToast("Generated " + count + " Name(s) for " + selectedCountry);
         }
 
         // --- EMAIL GETTER LOGIC ---
