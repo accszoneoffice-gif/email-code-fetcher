@@ -14,55 +14,58 @@ app.post('/api/get-code', async (req, res) => {
             return res.status(400).json({ success: false, error: "Account data is required" });
         }
 
-        // Split exact format: email|password|refresh_token|client_id
-        const parts = accountData.trim().split('|').map(p => p.trim());
-        
-        if (parts.length < 3) {
+        // Split data safely using pipe (|)
+        const rawParts = accountData.trim().split('|');
+        if (rawParts.length < 3) {
             return res.status(400).json({ 
                 success: false, 
-                error: "Invalid input format. Expected: email|password|refresh_token|client_id" 
+                error: "Invalid format. Expected: email|password|refresh_token|client_id" 
             });
         }
 
-        const email = parts[0];
-        const password = parts[1];
-        const refreshToken = parts[2];
-        const clientId = parts[3] || '9e5f94bc-e8a4-4e73-b8be-63364c29d753';
+        const email = rawParts[0].trim();
+        const password = rawParts[1].trim();
+        const refreshToken = rawParts[2].trim();
+        const clientId = rawParts[3] ? rawParts[3].trim() : '9e5f94bc-e8a4-4e73-b8be-63364c29d753';
 
-        // Step 1: Exchange Refresh Token for Access Token using consumers endpoint
-        const tokenParams = new URLSearchParams();
-        tokenParams.append('client_id', clientId);
-        tokenParams.append('grant_type', 'refresh_token');
-        tokenParams.append('refresh_token', refreshToken);
-        tokenParams.append('scope', 'https://graph.microsoft.com/Mail.Read offline_access');
+        // Step 1: Request Access Token from Microsoft OAuth Server
+        const postData = new URLSearchParams({
+            client_id: clientId,
+            grant_type: 'refresh_token',
+            refresh_token: refreshToken,
+            scope: 'https://graph.microsoft.com/Mail.Read offline_access'
+        });
 
-        let accessToken;
+        let accessToken = null;
         try {
             const tokenRes = await axios.post(
                 'https://login.microsoftonline.com/consumers/oauth2/v2.0/token',
-                tokenParams.toString(),
+                postData.toString(),
                 {
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
                 }
             );
             accessToken = tokenRes.data.access_token;
         } catch (tokenErr) {
-            const errDetails = tokenErr.response ? tokenErr.response.data : tokenErr.message;
+            const errorDetails = tokenErr.response ? tokenErr.response.data : tokenErr.message;
             return res.status(400).json({
                 success: false,
-                error: { message: "Failed to exchange refresh token", details: errDetails }
+                error: errorDetails
             });
         }
 
         if (!accessToken) {
-            return res.status(400).json({ success: false, error: "Access token generation returned empty." });
+            return res.status(400).json({ success: false, error: "Failed to generate access token." });
         }
 
-        // Step 2: Fetch last 5 messages from Microsoft Graph API
+        // Step 2: Fetch Recent Emails via Graph API
         const mailRes = await axios.get(
             'https://graph.microsoft.com/v1.0/me/messages?$top=5&$select=subject,bodyPreview,body',
             {
-                headers: { 'Authorization': `Bearer ${accessToken}` }
+                headers: { 
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Prefer': 'outlook.body-type="text"'
+                }
             }
         );
 
@@ -71,11 +74,12 @@ app.post('/api/get-code', async (req, res) => {
             return res.json({ success: false, error: "No emails found in this account." });
         }
 
-        // Step 3: Extract verification code using RegEx
+        // Step 3: Extract verification code using Regex
         let foundCode = null;
         for (const msg of messages) {
             const fullText = `${msg.subject || ''} ${msg.bodyPreview || ''} ${msg.body?.content || ''}`;
             
+            // Search for 4 to 8 digit verification codes
             const match = fullText.match(/(?:code|pin|verification|otp|is|g-)[\s:\-]*([0-9]{4,8})/i) || fullText.match(/\b[0-9]{4,8}\b/);
             
             if (match) {
@@ -87,7 +91,7 @@ app.post('/api/get-code', async (req, res) => {
         if (foundCode) {
             return res.json({ success: true, code: foundCode });
         } else {
-            return res.json({ success: false, error: "No 4-8 digit verification code found in recent emails." });
+            return res.json({ success: false, error: "No verification code found in recent emails." });
         }
 
     } catch (globalErr) {
