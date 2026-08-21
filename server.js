@@ -8,7 +8,7 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Helper function to extract exact OTP code and clean full links
+// Helper function to extract exact OTP code, clean verification link, and full mail body
 function extractCodeAndLink(text, htmlContent) {
     let foundCode = null;
     let actionLink = null;
@@ -17,7 +17,7 @@ function extractCodeAndLink(text, htmlContent) {
     const codeMatch = text.match(/\b\d{4,8}\b/);
     if (codeMatch) foundCode = codeMatch[0];
 
-    // 2. HTML href Tag Parsing (Extracts actual hidden activation/verification URLs)
+    // 2. Extract Verification / Action Links from HTML
     if (htmlContent) {
         const hrefRegex = /href=["'](https?:\/\/[^"']+)["']/gi;
         let match;
@@ -27,22 +27,25 @@ function extractCodeAndLink(text, htmlContent) {
             extractedLinks.push(match[1]);
         }
 
-        // Filter out images, schemas, and unsubscribe links
+        // Target primary verification/activation/confirm links (Reddit, Discord, social sites, etc.)
         actionLink = extractedLinks.find(link => {
             const clean = link.toLowerCase();
-            return !clean.endsWith('.png') && 
-                   !clean.endsWith('.jpg') && 
-                   !clean.endsWith('.jpeg') &&
-                   !clean.endsWith('.gif') &&
-                   !clean.endsWith('.css') && 
-                   !clean.includes('schemas.microsoft') && 
-                   !clean.includes('w3.org') &&
-                   !clean.includes('schema.org') &&
-                   !clean.includes('unsubscribe');
+            const isIgnored = clean.endsWith('.png') || 
+                              clean.endsWith('.jpg') || 
+                              clean.endsWith('.jpeg') || 
+                              clean.endsWith('.gif') || 
+                              clean.endsWith('.css') || 
+                              clean.includes('schemas.microsoft') || 
+                              clean.includes('w3.org') || 
+                              clean.includes('schema.org') || 
+                              clean.includes('unsubscribe') || 
+                              clean.includes('faq') || 
+                              clean.includes('contact');
+            return !isIgnored;
         }) || null;
     }
 
-    // 3. Fallback: Plain Text URL Extraction if HTML link not found
+    // 3. Fallback: Plain Text Link Search
     if (!actionLink) {
         const urlRegex = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/gi;
         const foundUrls = text.match(urlRegex) || [];
@@ -50,7 +53,8 @@ function extractCodeAndLink(text, htmlContent) {
             const clean = link.toLowerCase();
             return !clean.endsWith('.png') && 
                    !clean.endsWith('.jpg') && 
-                   !clean.includes('schemas.microsoft');
+                   !clean.includes('schemas.microsoft') &&
+                   !clean.includes('unsubscribe');
         }) || null;
     }
 
@@ -86,30 +90,24 @@ function fetchViaImap(host, email, password) {
                         return resolve({ success: false, error: 'No emails found.' });
                     }
 
-                    const recent = results.slice(-3);
+                    const recent = results.slice(-1); // Get latest email
                     const fetch = imap.fetch(recent, { bodies: '' });
-                    let parsedCount = 0;
-                    let foundData = { foundCode: null, actionLink: null };
 
                     fetch.on('message', (msg) => {
                         msg.on('body', (stream) => {
                             simpleParser(stream, async (err, parsed) => {
-                                parsedCount++;
                                 const text = parsed.text || '';
-                                const html = parsed.html || '';
+                                const html = parsed.html || parsed.textAsHtml || '';
                                 const extracted = extractCodeAndLink(`${parsed.subject} ${text}`, html);
 
-                                if (extracted.foundCode && !foundData.foundCode) foundData.foundCode = extracted.foundCode;
-                                if (extracted.actionLink && !foundData.actionLink) foundData.actionLink = extracted.actionLink;
-
-                                if (parsedCount === recent.length) {
-                                    imap.end();
-                                    resolve({
-                                        success: true,
-                                        code: foundData.foundCode,
-                                        link: foundData.actionLink
-                                    });
-                                }
+                                imap.end();
+                                resolve({
+                                    success: true,
+                                    subject: parsed.subject,
+                                    code: extracted.foundCode,
+                                    link: extracted.actionLink,
+                                    fullHtml: html || text.replace(/\n/g, '<br>')
+                                });
                             });
                         });
                     });
@@ -180,7 +178,7 @@ app.post('/api/get-code', async (req, res) => {
 
         const accessToken = tokenRes.data.access_token;
 
-        const mailRes = await axios.get('https://graph.microsoft.com/v1.0/me/messages?$top=5&$select=subject,bodyPreview,body', {
+        const mailRes = await axios.get('https://graph.microsoft.com/v1.0/me/messages?$top=1&$select=subject,bodyPreview,body', {
             headers: { Authorization: `Bearer ${accessToken}` }
         });
 
@@ -189,20 +187,18 @@ app.post('/api/get-code', async (req, res) => {
             return res.json({ success: false, error: 'No emails found.' });
         }
 
-        let foundCode = null;
-        let actionLink = null;
+        const msg = messages[0];
+        const htmlBody = msg.body?.content || '';
+        const textBody = msg.bodyPreview || '';
+        const extracted = extractCodeAndLink(`${msg.subject} ${textBody}`, htmlBody);
 
-        for (const msg of messages) {
-            const htmlBody = msg.body?.content || '';
-            const textBody = msg.bodyPreview || '';
-            const extracted = extractCodeAndLink(`${msg.subject} ${textBody}`, htmlBody);
-
-            if (extracted.foundCode && !foundCode) foundCode = extracted.foundCode;
-            if (extracted.actionLink && !actionLink) actionLink = extracted.actionLink;
-            if (foundCode && actionLink) break;
-        }
-
-        return res.json({ success: true, code: foundCode, link: actionLink });
+        return res.json({ 
+            success: true, 
+            subject: msg.subject,
+            code: extracted.foundCode, 
+            link: extracted.actionLink,
+            fullHtml: htmlBody || textBody.replace(/\n/g, '<br>')
+        });
 
     } catch (err) {
         return res.status(500).json({

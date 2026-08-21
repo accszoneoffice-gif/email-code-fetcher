@@ -40,6 +40,20 @@
             word-break: break-all;
             white-space: normal;
         }
+
+        /* Email Preview Styling */
+        .email-body-box {
+            max-height: 400px;
+            overflow-y: auto;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        .email-body-box a {
+            color: #2563eb;
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -48,7 +62,7 @@
 
     <div class="container py-5">
         <div class="row justify-content-center">
-            <div class="col-md-7">
+            <div class="col-md-8">
                 <div class="card p-4">
                     <h4 class="mb-3 text-primary fw-bold">Get Verification Code & Link</h4>
                     
@@ -63,7 +77,7 @@
 
                     <div class="mb-3">
                         <label class="form-label text-muted fw-semibold">ACCOUNT DETAILS</label>
-                        <textarea id="accountData" class="form-control" rows="4" placeholder="email|password|refresh_token|client_id"></textarea>
+                        <textarea id="accountData" class="form-control" rows="3" placeholder="email|password|refresh_token|client_id"></textarea>
                     </div>
 
                     <div id="emailBox" class="p-3 bg-light rounded mb-3 d-flex justify-content-between align-items-center d-none">
@@ -71,9 +85,9 @@
                         <button class="btn btn-sm btn-outline-primary" onclick="copyText('extractedEmail', 'Email copied!')">Copy Email</button>
                     </div>
 
-                    <button class="btn btn-primary w-100 mb-3" onclick="getCode()">Get Verification Code / Link</button>
+                    <button class="btn btn-primary w-100 mb-3" onclick="getCode()">Get Email Details</button>
 
-                    <!-- Code Display Box -->
+                    <!-- Code Display Box (যদি কোড না থাকে তবে দেখাবে না) -->
                     <div id="resultBox" class="p-3 bg-success-subtle text-success border border-success rounded mb-3 d-none">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
@@ -84,15 +98,21 @@
                         </div>
                     </div>
 
-                    <!-- Link Display Box -->
+                    <!-- Direct Link Box (যদি লিংক থাকে তবেই দেখাবে) -->
                     <div id="linkBox" class="p-3 bg-info-subtle text-info-emphasis border border-info rounded mb-3 d-none">
                         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                            <div style="max-width: 70%;">
-                                <small class="fw-bold d-block text-uppercase">Verification Link</small>
+                            <div style="max-width: 75%;">
+                                <small class="fw-bold d-block text-uppercase">Direct Verification Link</small>
                                 <a id="linkValue" href="#" target="_blank" class="fw-semibold text-primary text-decoration-underline link-text"></a>
                             </div>
                             <button class="btn btn-info btn-sm text-white fw-bold" onclick="copyText('linkValue', 'Link copied!')">Copy Link</button>
                         </div>
+                    </div>
+
+                    <!-- Full Email Body Display (মাউস দিয়ে রাইট ক্লিক করে কপি করার জন্য) -->
+                    <div id="emailPreviewBox" class="mt-3 d-none">
+                        <h6 class="fw-bold text-secondary mb-2" id="emailSubjectTitle">Email Content Preview:</h6>
+                        <div id="emailHtmlContainer" class="email-body-box"></div>
                     </div>
 
                     <div id="errorBox" class="p-3 bg-danger-subtle text-danger border border-danger rounded d-none"></div>
@@ -123,30 +143,16 @@
 
         function playSuccessSound() {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            
-            const osc1 = audioCtx.createOscillator();
-            const gain1 = audioCtx.createGain();
-            osc1.type = "triangle";
-            osc1.frequency.setValueAtTime(523.25, audioCtx.currentTime);
-            gain1.gain.setValueAtTime(0.5, audioCtx.currentTime);
-            gain1.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
-            
-            osc1.connect(gain1);
-            gain1.connect(audioCtx.destination);
-            osc1.start(audioCtx.currentTime);
-            osc1.stop(audioCtx.currentTime + 0.15);
-
-            const osc2 = audioCtx.createOscillator();
-            const gain2 = audioCtx.createGain();
-            osc2.type = "triangle";
-            osc2.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.12);
-            gain2.gain.setValueAtTime(0.6, audioCtx.currentTime + 0.12);
-            gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
-
-            osc2.connect(gain2);
-            gain2.connect(audioCtx.destination);
-            osc2.start(audioCtx.currentTime + 0.12);
-            osc2.stop(audioCtx.currentTime + 0.4);
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = "triangle";
+            osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(audioCtx.currentTime);
+            osc.stop(audioCtx.currentTime + 0.3);
         }
 
         function copyText(elementId, successMsg) {
@@ -175,10 +181,12 @@
             const accountData = document.getElementById('accountData').value;
             const resultBox = document.getElementById('resultBox');
             const linkBox = document.getElementById('linkBox');
+            const emailPreviewBox = document.getElementById('emailPreviewBox');
             const errorBox = document.getElementById('errorBox');
             
             resultBox.classList.add('d-none');
             linkBox.classList.add('d-none');
+            emailPreviewBox.classList.add('d-none');
             errorBox.classList.add('d-none');
 
             try {
@@ -190,31 +198,41 @@
                 const data = await res.json();
 
                 if (data.success) {
-                    let found = false;
+                    let hasContent = false;
 
+                    // ১. যদি OTP কোড থাকে তবেই কোড বক্স দেখাবে
                     if (data.code) {
                         document.getElementById('codeValue').innerText = data.code;
                         resultBox.classList.remove('d-none');
-                        found = true;
+                        hasContent = true;
                     }
 
+                    // ২. যদি ডাইরেক্ট লিংক এক্সট্রাক্ট করা যায় তবেই লিংক বক্স দেখাবে
                     if (data.link) {
                         const linkElem = document.getElementById('linkValue');
                         linkElem.innerText = data.link;
                         linkElem.href = data.link;
                         linkBox.classList.remove('d-none');
-                        found = true;
+                        hasContent = true;
                     }
 
-                    if (found) {
+                    // ৩. সম্পূর্ণ ইমেইল ডিটেইলস প্রিভিউ বক্স (আপনি সরাসরি বাটন বা লিংকে রাইট ক্লিক করে Copy Address করতে পারবেন)
+                    if (data.fullHtml) {
+                        document.getElementById('emailSubjectTitle').innerText = "Subject: " + (data.subject || "Email Content");
+                        document.getElementById('emailHtmlContainer').innerHTML = data.fullHtml;
+                        emailPreviewBox.classList.remove('d-none');
+                        hasContent = true;
+                    }
+
+                    if (hasContent) {
                         playSuccessSound();
-                        showToast("Retrieved successfully!");
+                        showToast("Email fetched successfully!");
                     } else {
-                        errorBox.innerText = "No code or link found in recent emails.";
+                        errorBox.innerText = "No content found in the latest email.";
                         errorBox.classList.remove('d-none');
                     }
                 } else {
-                    errorBox.innerText = data.error || "Failed to fetch code.";
+                    errorBox.innerText = data.error || "Failed to fetch email.";
                     errorBox.classList.remove('d-none');
                 }
             } catch (err) {
