@@ -45,8 +45,18 @@
         <div class="row justify-content-center">
             <div class="col-md-7">
                 <div class="card p-4">
-                    <h4 class="mb-3 text-primary fw-bold"> Get Verification Code & Link</h4>
+                    <h4 class="mb-3 text-primary fw-bold">Get Verification Code & Link</h4>
                     
+                    <!-- Provider Selector -->
+                    <div class="mb-3">
+                        <label class="form-label text-muted fw-semibold">SELECT EMAIL PROVIDER</label>
+                        <select id="providerSelect" class="form-select fw-bold text-dark" onchange="updatePlaceholder()">
+                            <option value="outlook">Outlook / Hotmail</option>
+                            <option value="gmail">Gmail</option>
+                            <option value="att">AT&T Mail</option>
+                        </select>
+                    </div>
+
                     <div class="mb-3">
                         <label class="form-label text-muted fw-semibold">ACCOUNT DETAILS</label>
                         <textarea id="accountData" class="form-control" rows="4" placeholder="email|password|refresh_token|client_id"></textarea>
@@ -88,6 +98,18 @@
     </div>
 
     <script>
+        function updatePlaceholder() {
+            const provider = document.getElementById('providerSelect').value;
+            const input = document.getElementById('accountData');
+            if (provider === 'outlook') {
+                input.placeholder = "email|password|refresh_token|client_id";
+            } else if (provider === 'gmail') {
+                input.placeholder = "email|app_password";
+            } else if (provider === 'att') {
+                input.placeholder = "email|app_password";
+            }
+        }
+
         function showToast(message) {
             const toast = document.getElementById("custom-toast");
             toast.innerText = "✓ " + message;
@@ -147,6 +169,7 @@
         });
 
         async function getCode() {
+            const provider = document.getElementById('providerSelect').value;
             const accountData = document.getElementById('accountData').value;
             const resultBox = document.getElementById('resultBox');
             const linkBox = document.getElementById('linkBox');
@@ -160,7 +183,7 @@
                 const res = await fetch('/api/get-code', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ accountData })
+                    body: JSON.stringify({ provider, accountData })
                 });
                 const data = await res.json();
 
