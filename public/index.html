@@ -94,7 +94,18 @@
                             </div>
 
                             <div class="mb-3">
-                                <label class="form-label text-muted fw-semibold">ACCOUNT DETAILS</label>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label text-muted fw-semibold mb-0">ACCOUNT DETAILS</label>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <!-- Sound ON/OFF Toggle -->
+                                        <div class="form-check form-switch m-0">
+                                            <input class="form-check-input" type="checkbox" id="soundToggle" checked style="cursor: pointer;">
+                                            <label class="form-check-label fw-bold text-secondary" for="soundToggle" style="font-size: 13px; cursor: pointer;">Sound ON</label>
+                                        </div>
+                                        <!-- Clear Field Button -->
+                                        <button class="btn btn-sm btn-outline-danger py-0 px-2 fw-semibold" onclick="clearAccountDetails()">Clear</button>
+                                    </div>
+                                </div>
                                 <textarea id="accountData" class="form-control" rows="3" placeholder="email|password|refresh_token|client_id"></textarea>
                             </div>
 
@@ -252,7 +263,6 @@
                             <h5 class="mb-3 text-primary fw-bold">Worldwide Name Generator</h5>
                             
                             <div class="row g-3">
-                                <!-- Search Country Input -->
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold">Search Country:</label>
                                     <input type="text" id="countrySearchInput" class="form-control" placeholder="Type country name..." oninput="filterCountries()">
@@ -261,7 +271,6 @@
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold">Select Country:</label>
                                     <select id="nameCountrySelect" class="form-select">
-                                        <!-- Countries populated dynamically -->
                                     </select>
                                 </div>
 
@@ -300,6 +309,47 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Web Audio API Notification Sound Setup
+        let audioCtx = null;
+        function playNotificationSound() {
+            const isSoundEnabled = document.getElementById('soundToggle').checked;
+            if (!isSoundEnabled) return;
+
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(587.33, now); // D5
+                osc.frequency.setValueAtTime(880, now + 0.1); // A5
+
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.4);
+            } catch (e) {
+                console.log("Audio play failed:", e);
+            }
+        }
+
+        function clearAccountDetails() {
+            document.getElementById('accountData').value = '';
+            document.getElementById('emailBox').classList.add('d-none');
+            showToast("Cleared account details!");
+        }
+
         // 198 Countries List
         const countryList = [
             "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan",
@@ -352,7 +402,7 @@
             },
             ng_af: {
                 m: ["Kwame", "Kofi", "Abubakar", "Chidubem", "Tunde", "Emeka", "Oluwaseun", "Kofi", "Abebe", "Musa", "Juma", "Sipho", "Bongani", "Tariq", "Kelechi", "Babajide", "Suleiman", "Siyabonga", "Faraji", "Tendai"],
-                f: ["Amina", "Zola", "Chioma", "Zuri", "Nia", "Fatoumata", "Amara", "Titi", "Abeba", "Blessing", "Chiamaka", "Ifeoma", "Khadija", "Nneka", "Oluwatosin", "Simisola", "Zainab", "Thandiewe", "Lindiwe", "Ayana"],
+                f: ["Amina", "Zola", "Chioma", "Zuri", "Nia", "Fatoumata", "Amara", "Titi", "Abeba", "Blessing", "Chiamaka", "Ifeoma", "Khadija", "Nneka", "Oluwatesin", "Simisola", "Zainab", "Thandiewe", "Lindiwe", "Ayana"],
                 l: ["Okonkwo", "Adeleke", "Musa", "Mensah", "Osei", "Kipkorir", "Kamau", "Dlamini", "Nkosi", "Banda", "Diallo", "Traore", "Sow", "Abebe", "Jalloh", "Nwadike", "Obi", "Oluwole", "Sithole", "Chukwu"]
             },
             latam: {
@@ -367,7 +417,6 @@
             }
         };
 
-        // Populate Options
         function populateCountries(listToPopulate) {
             const select = document.getElementById('nameCountrySelect');
             select.innerHTML = '';
@@ -519,7 +568,6 @@
             const gender = document.getElementById('nameGender').value;
             const count = parseInt(document.getElementById('nameCount').value) || 10;
 
-            // Map Country to Specific Data
             let dataset = nameData.general;
 
             if (country === "Bangladesh") {
@@ -616,6 +664,7 @@
                     }
 
                     if (hasContent) {
+                        playNotificationSound();
                         showToast("Email fetched successfully!");
                     } else {
                         errorBox.innerText = "No content found in the latest email.";
