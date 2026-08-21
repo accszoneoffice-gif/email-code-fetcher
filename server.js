@@ -6,102 +6,122 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// ইমেইল বডি থেকে ৬ বা ৫ ডিজিটের ওটিপি (OTP) বা ভেরিফিকেশন কোড খুঁজে বের করার ফাংশন
+function extractOTP(text) {
+    if (!text) return null;
+    
+    // ১. সাধারণ ৬ বা ৪-৮ ডিজিটের কোড খোঁজা (যেমন: 123456, 47164)
+    const codeMatch = text.match(/\b\d{4,8}\b/);
+    if (codeMatch) return codeMatch[0];
+
+    // ২. আলফানিউমেরিক কোড খোঁজা (যেমন: G-123456)
+    const alphaCodeMatch = text.match(/\b[A-Za-z0-9]{5,8}\b/);
+    if (alphaCodeMatch) return alphaCodeMatch[0];
+
+    return null;
+}
+
 app.post('/api/get-code', async (req, res) => {
     try {
         const { accountData } = req.body;
 
         if (!accountData) {
-            return res.status(400).json({ success: false, error: "Account data is required" });
+            return res.status(400).json({ success: false, error: "Account details are required" });
         }
 
-        // Parse: email|password|refresh_token|client_id
+        // ইনপুট ফরম্যাট: email|password|refresh_token|client_id
         const parts = accountData.trim().split('|').map(p => p.trim());
-        if (parts.length < 3) {
+        if (parts.length < 4) {
             return res.status(400).json({ 
                 success: false, 
-                error: "Invalid input format. Expected: email|password|refresh_token|client_id" 
+                error: "Invalid format. Required: email|password|refresh_token|client_id" 
             });
         }
 
-        const email = parts[0];
-        const password = parts[1];
-        const refreshToken = parts[2];
-        const clientId = parts[3] || '9e5f94bc-e8a4-4e73-b8be-63364c29d753';
+        const [email, password, refreshToken, clientId] = parts;
 
-        // Direct token exchange endpoint used by legacy Hotmail tools
+        // ১. মাইক্রোসফটের অফিশিয়াল ওথ২ এন্ডপয়েন্ট থেকে নতুন Access Token নেওয়া
         const tokenParams = new URLSearchParams({
             client_id: clientId,
             grant_type: 'refresh_token',
-            refresh_token: refreshToken
+            refresh_token: refreshToken,
+            scope: 'https://outlook.office.com/mail.read'
         });
 
-        let accessToken;
+        let tokenResponse;
         try {
-            // Using login.live.com endpoint directly for Hotmail/Outlook tokens
-            const tokenRes = await axios.post(
-                'https://login.live.com/oauth20_token.srf',
+            tokenResponse = await axios.post(
+                'https://login.microsoftonline.com/common/oauth2/v2.0/token',
                 tokenParams.toString(),
-                {
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-                }
+                { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
             );
-            accessToken = tokenRes.data.access_token;
-        } catch (err) {
-            // Fallback to Microsoft v2.0 if login.live fails
-            try {
-                const tokenRes2 = await axios.post(
-                    'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-                    tokenParams.toString(),
-                    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-                );
-                accessToken = tokenRes2.data.access_token;
-            } catch (err2) {
-                return res.status(400).json({
-                    success: false,
-                    error: err2.response ? err2.response.data : err2.message
-                });
-            }
+        } catch (tokenErr) {
+            return res.status(400).json({
+                success: false,
+                error: "Failed to authenticate with Microsoft. Invalid Refresh Token or Client ID."
+            });
         }
 
-        if (!accessToken) {
-            return res.status(400).json({ success: false, error: "Access token could not be generated." });
-        }
+        const accessToken = tokenResponse.data.access_token;
 
-        // Fetch Recent Messages via Graph API
-        const mailRes = await axios.get(
-            'https://graph.microsoft.com/v1.0/me/messages?$top=10&$select=subject,bodyPreview,body',
+        // ২. মাইক্রোসফট আউটলুক/গ্রাফ এপিআই দিয়ে সাম্প্রতিক সব ইমেইল ফেচ করা (কোনো প্ল্যাটফর্ম ফিল্টার ছাড়া)
+        const mailResponse = await axios.get(
+            'https://outlook.office.com/api/v2.0/me/messages?$top=5&$select=Subject,From,Body,ReceivedDateTime',
             {
-                headers: { 'Authorization': `Bearer ${accessToken}` }
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Accept': 'application/json'
+                }
             }
         );
 
-        const messages = mailRes.data.value;
+        const messages = mailResponse.data.value;
+
         if (!messages || messages.length === 0) {
-            return res.json({ success: false, error: "No emails found in this account." });
+            return res.json({ success: false, error: "No emails found in this inbox." });
         }
 
-        // Extract 4-8 digit verification code
+        // ৩. যেকোনো সোশ্যাল মিডিয়া বা সার্ভিস থেকে আসা সাম্প্রতিক ইমেইল প্রসেস করা
         let foundCode = null;
+        let formattedMessages = [];
+
         for (const msg of messages) {
-            const content = `${msg.subject || ''} ${msg.bodyPreview || ''} ${msg.body?.content || ''}`;
-            const match = content.match(/(?:code|pin|verification|otp|is)[\s:\-]*([0-9]{4,8})/i) || content.match(/\b[0-9]{4,8}\b/);
-            
-            if (match) {
-                foundCode = match[1] || match[0];
-                break;
+            const sender = msg.From?.EmailAddress?.Address || msg.From?.EmailAddress?.Name || 'Unknown';
+            const subject = msg.Subject || 'No Subject';
+            const bodyContent = msg.Body?.Content || '';
+
+            // ওটিপি বা কোড এক্সট্রাক্ট করা
+            const code = extractOTP(subject) || extractOTP(bodyContent);
+
+            if (!foundCode && code) {
+                foundCode = code; // সর্বশেষে আসা ইমেইলের কোডটি ধরা হবে
             }
+
+            formattedMessages.push({
+                from: sender,
+                subject: subject,
+                date: msg.ReceivedDateTime,
+                code: code || 'N/A'
+            });
         }
 
         if (foundCode) {
-            return res.json({ success: true, code: foundCode });
+            return res.json({
+                success: true,
+                code: foundCode,
+                messages: formattedMessages
+            });
         } else {
-            return res.json({ success: false, error: "No verification code found in recent emails." });
+            return res.json({
+                success: false,
+                error: "Emails retrieved, but no verification code was detected in recent messages."
+            });
         }
 
-    } catch (globalErr) {
+    } catch (err) {
         return res.status(500).json({
             success: false,
-            error: globalErr.response ? globalErr.response.data : globalErr.message
+            error: err.response ? JSON.stringify(err.response.data) : err.message
         });
     }
 });
