@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Email Code & Link Fetcher</title>
+    <title>Multi-Tool Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body { background-color: #f4f7fe; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .card { border-radius: 15px; border: none; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-        .btn-primary { background-color: #2563eb; border: none; padding: 12px; font-weight: 600; border-radius: 8px; }
+        .btn-primary { background-color: #2563eb; border: none; padding: 10px 20px; font-weight: 600; border-radius: 8px; }
         .btn-primary:hover { background-color: #1d4ed8; }
+        .nav-pills .nav-link { font-weight: 600; border-radius: 8px; color: #4b5563; padding: 8px 16px; margin-left: 5px; }
+        .nav-pills .nav-link.active { background-color: #2563eb; color: #fff; }
         
         #custom-toast {
             visibility: hidden;
@@ -18,7 +20,7 @@
             color: #fff;
             text-align: center;
             border-radius: 10px;
-            padding: 14px 24px;
+            padding: 12px 24px;
             position: fixed;
             z-index: 9999;
             top: 20px;
@@ -36,12 +38,8 @@
             top: 30px;
         }
 
-        .link-text {
-            word-break: break-all;
-            white-space: normal;
-        }
+        .link-text { word-break: break-all; white-space: normal; }
 
-        /* Email Preview Styling */
         .email-body-box {
             max-height: 400px;
             overflow-y: auto;
@@ -50,77 +48,260 @@
             border-radius: 10px;
             padding: 20px;
         }
-        .email-body-box a {
-            color: #2563eb;
-            text-decoration: underline;
-        }
+        .email-body-box a { color: #2563eb; text-decoration: underline; }
+
+        .generator-box { background: #fff; border-radius: 12px; padding: 20px; }
+        .form-check-label { font-size: 14px; font-weight: 500; color: #374151; }
     </style>
 </head>
 <body>
 
     <div id="custom-toast">✓ Copied to clipboard!</div>
 
-    <div class="container py-5">
+    <div class="container py-4">
         <div class="row justify-content-center">
-            <div class="col-md-8">
-                <div class="card p-4">
-                    <h4 class="mb-3 text-primary fw-bold">Get Verification Code & Link</h4>
-                    
-                    <div class="mb-3">
-                        <label class="form-label text-muted fw-semibold">SELECT EMAIL PROVIDER</label>
-                        <select id="providerSelect" class="form-select fw-bold text-dark" onchange="updatePlaceholder()">
-                            <option value="outlook">Outlook / Hotmail</option>
-                            <option value="gmail">Gmail</option>
-                            <option value="att">AT&T Mail</option>
-                        </select>
-                    </div>
-
-                    <div class="mb-3">
-                        <label class="form-label text-muted fw-semibold">ACCOUNT DETAILS</label>
-                        <textarea id="accountData" class="form-control" rows="3" placeholder="email|password|refresh_token|client_id"></textarea>
-                    </div>
-
-                    <div id="emailBox" class="p-3 bg-light rounded mb-3 d-flex justify-content-between align-items-center d-none">
-                        <span id="extractedEmail" class="fw-bold text-dark"></span>
-                        <button class="btn btn-sm btn-outline-primary" onclick="copyText('extractedEmail', 'Email copied!')">Copy Email</button>
-                    </div>
-
-                    <button class="btn btn-primary w-100 mb-3" onclick="getCode()">Get Email Details</button>
-
-                    <!-- Code Display Box (যদি কোড না থাকে তবে দেখাবে না) -->
-                    <div id="resultBox" class="p-3 bg-success-subtle text-success border border-success rounded mb-3 d-none">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <small class="fw-bold d-block">VERIFICATION CODE</small>
-                                <span id="codeValue" class="fs-2 fw-bold"></span>
-                            </div>
-                            <button class="btn btn-success" onclick="copyText('codeValue', 'Code copied!')">Copy Code</button>
-                        </div>
-                    </div>
-
-                    <!-- Direct Link Box (যদি লিংক থাকে তবেই দেখাবে) -->
-                    <div id="linkBox" class="p-3 bg-info-subtle text-info-emphasis border border-info rounded mb-3 d-none">
-                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                            <div style="max-width: 75%;">
-                                <small class="fw-bold d-block text-uppercase">Direct Verification Link</small>
-                                <a id="linkValue" href="#" target="_blank" class="fw-semibold text-primary text-decoration-underline link-text"></a>
-                            </div>
-                            <button class="btn btn-info btn-sm text-white fw-bold" onclick="copyText('linkValue', 'Link copied!')">Copy Link</button>
-                        </div>
-                    </div>
-
-                    <!-- Full Email Body Display (মাউস দিয়ে রাইট ক্লিক করে কপি করার জন্য) -->
-                    <div id="emailPreviewBox" class="mt-3 d-none">
-                        <h6 class="fw-bold text-secondary mb-2" id="emailSubjectTitle">Email Content Preview:</h6>
-                        <div id="emailHtmlContainer" class="email-body-box"></div>
-                    </div>
-
-                    <div id="errorBox" class="p-3 bg-danger-subtle text-danger border border-danger rounded d-none"></div>
+            <div class="col-md-9">
+                
+                <!-- Main Header with Tab Navigation -->
+                <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2 card p-3">
+                    <h4 class="m-0 text-primary fw-bold">Tool Dashboard</h4>
+                    <ul class="nav nav-pills" id="pills-tab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="pills-email-tab" data-bs-toggle="pill" data-bs-target="#pills-email" type="button" role="tab">Get Verification Code</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="pills-password-tab" data-bs-toggle="pill" data-bs-target="#pills-password" type="button" role="tab">Password Generator</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="pills-name-tab" data-bs-toggle="pill" data-bs-target="#pills-name" type="button" role="tab">Name Generator</button>
+                        </li>
+                    </ul>
                 </div>
+
+                <div class="tab-content" id="pills-tabContent">
+                    
+                    <!-- TAB 1: EMAIL FETCHER -->
+                    <div class="tab-pane fade show active" id="pills-email" role="tabpanel">
+                        <div class="card p-4">
+                            <h5 class="mb-3 text-primary fw-bold">Get Verification Code & Link</h5>
+                            
+                            <div class="mb-3">
+                                <label class="form-label text-muted fw-semibold">SELECT EMAIL PROVIDER</label>
+                                <select id="providerSelect" class="form-select fw-bold text-dark" onchange="updatePlaceholder()">
+                                    <option value="outlook">Outlook / Hotmail</option>
+                                    <option value="gmail">Gmail</option>
+                                    <option value="att">AT&T Mail</option>
+                                </select>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label text-muted fw-semibold">ACCOUNT DETAILS</label>
+                                <textarea id="accountData" class="form-control" rows="3" placeholder="email|password|refresh_token|client_id"></textarea>
+                            </div>
+
+                            <div id="emailBox" class="p-3 bg-light rounded mb-3 d-flex justify-content-between align-items-center d-none">
+                                <span id="extractedEmail" class="fw-bold text-dark"></span>
+                                <button class="btn btn-sm btn-outline-primary" onclick="copyText('extractedEmail', 'Email copied!')">Copy Email</button>
+                            </div>
+
+                            <button class="btn btn-primary w-100 mb-3" onclick="getCode()">Get Email Details</button>
+
+                            <!-- Code Display Box -->
+                            <div id="resultBox" class="p-3 bg-success-subtle text-success border border-success rounded mb-3 d-none">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <small class="fw-bold d-block">VERIFICATION CODE</small>
+                                        <span id="codeValue" class="fs-2 fw-bold"></span>
+                                    </div>
+                                    <button class="btn btn-success" onclick="copyText('codeValue', 'Code copied!')">Copy Code</button>
+                                </div>
+                            </div>
+
+                            <!-- Direct Link Box -->
+                            <div id="linkBox" class="p-3 bg-info-subtle text-info-emphasis border border-info rounded mb-3 d-none">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <div style="max-width: 75%;">
+                                        <small class="fw-bold d-block text-uppercase">Direct Verification Link</small>
+                                        <a id="linkValue" href="#" target="_blank" class="fw-semibold text-primary text-decoration-underline link-text"></a>
+                                    </div>
+                                    <button class="btn btn-info btn-sm text-white fw-bold" onclick="copyText('linkValue', 'Link copied!')">Copy Link</button>
+                                </div>
+                            </div>
+
+                            <!-- Email Body Box -->
+                            <div id="emailPreviewBox" class="mt-3 d-none">
+                                <h6 class="fw-bold text-secondary mb-2" id="emailSubjectTitle">Email Content Preview:</h6>
+                                <div id="emailHtmlContainer" class="email-body-box"></div>
+                            </div>
+
+                            <div id="errorBox" class="p-3 bg-danger-subtle text-danger border border-danger rounded d-none"></div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: PASSWORD GENERATOR -->
+                    <div class="tab-pane fade" id="pills-password" role="tabpanel">
+                        <div class="card p-4">
+                            <h5 class="mb-3 text-primary fw-bold">Online Password Generator</h5>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Password Length:</label>
+                                    <input type="number" id="passLength" class="form-control" value="12" min="4" max="100">
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold"># of Passwords to Generate:</label>
+                                    <input type="number" id="passCount" class="form-control" value="1" min="1" max="500">
+                                </div>
+
+                                <div class="col-12">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="incLower" checked>
+                                        <label class="form-check-label" for="incLower">Lowercase Characters (e.g. abcdef)</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="incUpper" checked>
+                                        <label class="form-check-label" for="incUpper">Uppercase Characters (e.g. ABCDEF)</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="incNumbers" checked>
+                                        <label class="form-check-label" for="incNumbers">Numbers (e.g. 123456)</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="incSymbols" checked>
+                                        <label class="form-check-label" for="incSymbols">Symbols (e.g. !@#$%^&*)</label>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Characters to Include:</label>
+                                    <input type="text" id="customInclude" class="form-control" placeholder="e.g. +=">
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Characters to Exclude:</label>
+                                    <input type="text" id="customExclude" class="form-control" placeholder="e.g. +[]">
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Begins With:</label>
+                                    <div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio" name="beginWith" id="beginAny" value="any" checked>
+                                            <label class="form-check-label" for="beginAny">Any</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio" name="beginWith" id="beginLetter" value="letter">
+                                            <label class="form-check-label" for="beginLetter">Letter</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio" name="beginWith" id="beginNumber" value="number">
+                                            <label class="form-check-label" for="beginNumber">Number</label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Ends With:</label>
+                                    <div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio" name="endWith" id="endAny" value="any" checked>
+                                            <label class="form-check-label" for="endAny">Any</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio" name="endWith" id="endLetter" value="letter">
+                                            <label class="form-check-label" for="endLetter">Letter</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio" name="endWith" id="endNumber" value="number">
+                                            <label class="form-check-label" for="endNumber">Number</label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-12">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="excSimilar">
+                                        <label class="form-check-label" for="excSimilar">Exclude Similar Characters (e.g. o, 0, i, l, 1, I)</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="excAmbiguous">
+                                        <label class="form-check-label" for="excAmbiguous">Exclude Ambiguous Characters (e.g. ~ ; : . , { } &lt; &gt; [ ] ( ) / \ ' " `)</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="noDuplicate">
+                                        <label class="form-check-label" for="noDuplicate">No Duplicate Characters</label>
+                                    </div>
+                                </div>
+
+                                <div class="col-12 d-flex gap-2">
+                                    <button class="btn btn-primary" onclick="generatePasswords()">Generate Password</button>
+                                    <button class="btn btn-success" onclick="copyText('generatedPasswordsResult', 'Passwords Copied!')">Copy Passwords</button>
+                                </div>
+
+                                <div class="col-12">
+                                    <label class="form-label fw-bold">Generated Passwords:</label>
+                                    <textarea id="generatedPasswordsResult" class="form-control" rows="5" readonly></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: NAME GENERATOR -->
+                    <div class="tab-pane fade" id="pills-name" role="tabpanel">
+                        <div class="card p-4">
+                            <h5 class="mb-3 text-primary fw-bold">Random Name Generator (Country Specific)</h5>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Select Country:</label>
+                                    <select id="nameCountry" class="form-select">
+                                        <option value="us">United States (USA)</option>
+                                        <option value="uk">United Kingdom (UK)</option>
+                                        <option value="ca">Canada</option>
+                                        <option value="au">Australia</option>
+                                        <option value="de">Germany</option>
+                                        <option value="fr">France</option>
+                                        <option value="bd">Bangladesh</option>
+                                        <option value="in">India</option>
+                                        <option value="jp">Japan</option>
+                                    </select>
+                                </div>
+
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">Gender:</label>
+                                    <select id="nameGender" class="form-select">
+                                        <option value="random">Random (Male/Female)</option>
+                                        <option value="male">Male</option>
+                                        <option value="female">Female</option>
+                                    </select>
+                                </div>
+
+                                <div class="col-md-4">
+                                    <label class="form-label fw-bold">How Many Names? (1 - 500):</label>
+                                    <input type="number" id="nameCount" class="form-control" value="100" min="1" max="500">
+                                </div>
+
+                                <div class="col-12 d-flex gap-2">
+                                    <button class="btn btn-primary" onclick="generateNames()">Generate Names</button>
+                                    <button class="btn btn-success" onclick="copyText('generatedNamesResult', 'Names Copied!')">Copy All Names</button>
+                                </div>
+
+                                <div class="col-12">
+                                    <label class="form-label fw-bold">Generated Names:</label>
+                                    <textarea id="generatedNamesResult" class="form-control" rows="8" readonly placeholder="Generated names will appear here..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
             </div>
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         function updatePlaceholder() {
             const provider = document.getElementById('providerSelect').value;
@@ -136,34 +317,169 @@
             const toast = document.getElementById("custom-toast");
             toast.innerText = "✓ " + message;
             toast.classList.add("show");
-            setTimeout(() => {
-                toast.classList.remove("show");
-            }, 3000);
-        }
-
-        function playSuccessSound() {
-            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = "triangle";
-            osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
-            gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start(audioCtx.currentTime);
-            osc.stop(audioCtx.currentTime + 0.3);
+            setTimeout(() => { toast.classList.remove("show"); }, 3000);
         }
 
         function copyText(elementId, successMsg) {
             const element = document.getElementById(elementId);
-            const text = element.innerText || element.href;
+            const text = element.value || element.innerText || element.href;
             if (!text) return;
             navigator.clipboard.writeText(text).then(() => {
                 showToast(successMsg);
             });
         }
 
+        // --- PASSWORD GENERATOR LOGIC ---
+        function generatePasswords() {
+            const length = parseInt(document.getElementById('passLength').value) || 12;
+            const count = parseInt(document.getElementById('passCount').value) || 1;
+            
+            const incLower = document.getElementById('incLower').checked;
+            const incUpper = document.getElementById('incUpper').checked;
+            const incNumbers = document.getElementById('incNumbers').checked;
+            const incSymbols = document.getElementById('incSymbols').checked;
+            
+            const customInclude = document.getElementById('customInclude').value;
+            const customExclude = document.getElementById('customExclude').value;
+            
+            const beginWith = document.querySelector('input[name="beginWith"]:checked').value;
+            const endWith = document.querySelector('input[name="endWith"]:checked').value;
+            
+            const excSimilar = document.getElementById('excSimilar').checked;
+            const excAmbiguous = document.getElementById('excAmbiguous').checked;
+            const noDuplicate = document.getElementById('noDuplicate').checked;
+
+            let lowerChars = "abcdefghijklmnopqrstuvwxyz";
+            let upperChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            let numChars = "0123456789";
+            let symbolChars = "!@#$%^&*()_+-=[]{}|;:,.<>?";
+
+            if (excSimilar) {
+                lowerChars = lowerChars.replace(/[il]/g, '');
+                upperChars = upperChars.replace(/[IO]/g, '');
+                numChars = numChars.replace(/[01]/g, '');
+            }
+
+            if (excAmbiguous) {
+                symbolChars = symbolChars.replace(/[~;:.,{}<>[\]()/\\'`"]/g, '');
+            }
+
+            let pool = "";
+            if (incLower) pool += lowerChars;
+            if (incUpper) pool += upperChars;
+            if (incNumbers) pool += numChars;
+            if (incSymbols) pool += symbolChars;
+            if (customInclude) pool += customInclude;
+
+            if (customExclude) {
+                for (let ch of customExclude) {
+                    pool = pool.split(ch).join('');
+                }
+            }
+
+            if (!pool) {
+                alert("Please select at least one character set.");
+                return;
+            }
+
+            let passwords = [];
+
+            for (let i = 0; i < count; i++) {
+                let currentPool = pool;
+                let pass = [];
+
+                // Helper to get random char from set
+                function getRandomChar(charSet) {
+                    let validChars = charSet.split('').filter(c => currentPool.includes(c));
+                    if (validChars.length === 0) validChars = currentPool.split('');
+                    const char = validChars[Math.floor(Math.random() * validChars.length)];
+                    if (noDuplicate) currentPool = currentPool.replace(char, '');
+                    return char;
+                }
+
+                // First Char logic
+                let firstChar = "";
+                if (beginWith === "letter") {
+                    firstChar = getRandomChar(lowerChars + upperChars);
+                } else if (beginWith === "number") {
+                    firstChar = getRandomChar(numChars);
+                }
+
+                // Last Char logic
+                let lastChar = "";
+                if (endWith === "letter") {
+                    lastChar = getRandomChar(lowerChars + upperChars);
+                } else if (endWith === "number") {
+                    lastChar = getRandomChar(numChars);
+                }
+
+                let fillLength = length;
+                if (firstChar) fillLength--;
+                if (lastChar) fillLength--;
+
+                let middlePass = "";
+                for (let j = 0; j < fillLength; j++) {
+                    if (currentPool.length === 0) break;
+                    const char = currentPool[Math.floor(Math.random() * currentPool.length)];
+                    middlePass += char;
+                    if (noDuplicate) currentPool = currentPool.replace(char, '');
+                }
+
+                passwords.push((firstChar + middlePass + lastChar));
+            }
+
+            document.getElementById('generatedPasswordsResult').value = passwords.join('\n');
+            showToast("Generated " + count + " Password(s)");
+        }
+
+        // --- NAME GENERATOR LOGIC ---
+        const nameData = {
+            us: {
+                firstM: ["James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph", "Thomas", "Charles", "Christopher", "Daniel", "Matthew", "Anthony", "Mark", "Donald", "Steven", "Paul", "Andrew", "Joshua"],
+                firstF: ["Mary", "Patricia", "Jennifer", "Linda", "Elizabeth", "Barbara", "Susan", "Jessica", "Sarah", "Karen", "Lisa", "Nancy", "Betty", "Sandra", "Margaret", "Ashley", "Kimberly", "Emily", "Donna", "Michelle"],
+                last: ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson", "Thomas", "Taylor", "Moore", "Jackson", "Martin"]
+            },
+            uk: {
+                firstM: ["Oliver", "George", "Harry", "Noah", "Jack", "Leo", "Arthur", "Muhammad", "Oscar", "Charlie", "Jacob", "Thomas", "Henry", "William", "Alfies", "Joshua", "Archie", "Ethan", "Isaac", "Alexander"],
+                firstF: ["Olivia", "Amelia", "Isla", "Ava", "Mia", "Ivy", "Lily", "Isabella", "Sophia", "Rosie", "Grace", "Freya", "Willow", "Florence", "Emily", "Ella", "Poppy", "Evie", "Charlotte", "Daisy"],
+                last: ["Smith", "Jones", "Taylor", "Williams", "Brown", "Davies", "Evans", "Wilson", "Thomas", "Roberts", "Johnson", "Lewis", "Walker", "Robinson", "Wood", "Thompson", "Wright", "White", "Watson", "Jackson"]
+            },
+            bd: {
+                firstM: ["Tanvir", "Shakib", "Rahim", "Kamal", "Hasan", "Arif", "Mahmud", "Sabbir", "Naim", "Fahim", "Kawsar", "Rafiq", "Jahid", "Saiful", "Mehedi", "Anik", "Imran", "Tariq", "Ashraful", "Rakib"],
+                firstF: ["Nusrat", "Sadia", "Jahan", "Sharmin", "Farhana", "Tasmia", "Ria", "Sumaiya", "Mim", "Afsana", "Sultana", "Kazi", "Anika", "Sonia", "Tamanna", "Sabrina", "Rumana", "Bristy", "Mitu", "Laila"],
+                last: ["Rahman", "Islam", "Hossain", "Chowdhury", "Ahmed", "Khan", "Uddin", "Mia", "Sarkar", "Ali", "Mahmud", "Haque", "Alam", "Khandakar", "Bhuiyan", "Akter", "Talukder", "Hasan", "Gazi", "Miah"]
+            },
+            in: {
+                firstM: ["Aarav", "Vihaan", "Vivaan", "Ananya", "Diya", "Advik", "Kabir", "Anaya", "Aarohi", "Aditya", "Devansh", "Reyansh", "Atharv", "Aaryan", "Ishaan", "Dhruv", "Arjun", "Kavir", "Sai", "Ayaan"],
+                firstF: ["Saanvi", "Aanya", "Aadhya", "Aaradhya", "Ananya", "Pari", "Anika", "Navya", "Angel", "Diya", "Myra", "Sara", "Ira", "Ahana", "Riya", "Prisha", "Samaira", "Kavya", "Kyra", "Siya"],
+                last: ["Sharma", "Verma", "Gupta", "Malhotra", "Bhatia", "Saxena", "Mehta", "Joshi", "Singh", "Kumar", "Patel", "Shah", "Reddy", "Nair", "Rao", "Chopra", "Deshmukh", "Kulkarni", "Agarwal", "Bansal"]
+            }
+        };
+
+        function generateNames() {
+            const country = document.getElementById('nameCountry').value;
+            const gender = document.getElementById('nameGender').value;
+            const count = parseInt(document.getElementById('nameCount').value) || 100;
+
+            const cData = nameData[country] || nameData['us'];
+            let names = [];
+
+            for (let i = 0; i < count; i++) {
+                let g = gender;
+                if (g === 'random') g = Math.random() > 0.5 ? 'male' : 'female';
+
+                let firstArr = (g === 'male') ? cData.firstM : cData.firstF;
+                let randomFirst = firstArr[Math.floor(Math.random() * firstArr.length)];
+                let randomLast = cData.last[Math.floor(Math.random() * cData.last.length)];
+
+                names.push(`${randomFirst} ${randomLast}`);
+            }
+
+            document.getElementById('generatedNamesResult').value = names.join('\n');
+            showToast("Generated " + count + " Name(s)");
+        }
+
+        // --- EMAIL GETTER LOGIC ---
         document.getElementById('accountData').addEventListener('input', function(e) {
             const val = e.target.value.trim();
             const emailBox = document.getElementById('emailBox');
@@ -200,14 +516,12 @@
                 if (data.success) {
                     let hasContent = false;
 
-                    // ১. যদি OTP কোড থাকে তবেই কোড বক্স দেখাবে
                     if (data.code) {
                         document.getElementById('codeValue').innerText = data.code;
                         resultBox.classList.remove('d-none');
                         hasContent = true;
                     }
 
-                    // ২. যদি ডাইরেক্ট লিংক এক্সট্রাক্ট করা যায় তবেই লিংক বক্স দেখাবে
                     if (data.link) {
                         const linkElem = document.getElementById('linkValue');
                         linkElem.innerText = data.link;
@@ -216,7 +530,6 @@
                         hasContent = true;
                     }
 
-                    // ৩. সম্পূর্ণ ইমেইল ডিটেইলস প্রিভিউ বক্স (আপনি সরাসরি বাটন বা লিংকে রাইট ক্লিক করে Copy Address করতে পারবেন)
                     if (data.fullHtml) {
                         document.getElementById('emailSubjectTitle').innerText = "Subject: " + (data.subject || "Email Content");
                         document.getElementById('emailHtmlContainer').innerHTML = data.fullHtml;
@@ -225,7 +538,6 @@
                     }
 
                     if (hasContent) {
-                        playSuccessSound();
                         showToast("Email fetched successfully!");
                     } else {
                         errorBox.innerText = "No content found in the latest email.";
