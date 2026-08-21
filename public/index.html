@@ -246,7 +246,7 @@
                         </div>
                     </div>
 
-                    <!-- TAB 3: NAME GENERATOR (ALL COUNTRIES WITH COUNTRY-SPECIFIC NAMES) -->
+                    <!-- TAB 3: NAME GENERATOR -->
                     <div class="tab-pane fade" id="pills-name" role="tabpanel">
                         <div class="card p-4">
                             <h5 class="mb-3 text-primary fw-bold">Worldwide Name Generator</h5>
@@ -261,7 +261,7 @@
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold">Select Country:</label>
                                     <select id="nameCountrySelect" class="form-select">
-                                        <!-- All countries populated dynamically -->
+                                        <!-- Countries populated dynamically -->
                                     </select>
                                 </div>
 
@@ -276,7 +276,7 @@
 
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold">Quantity (1 - 500):</label>
-                                    <input type="number" id="nameCount" class="form-control" value="100" min="1" max="500">
+                                    <input type="number" id="nameCount" class="form-control" value="10" min="1" max="500">
                                 </div>
 
                                 <div class="col-12 d-flex gap-2">
@@ -362,7 +362,7 @@
             },
             general: {
                 m: ["Alexander", "Benjamin", "Charles", "Daniel", "Ethan", "Gabriel", "Henry", "Isaac", "Julian", "Liam", "Lucas", "Matthew", "Nathan", "Oliver", "Patrick", "Ryan", "Samuel", "Thomas", "William", "Zachary"],
-                f: ["Amelia", "Charlotte", "Emma", "Evelyn", "Grace", "Hannah", "Isabella", "Julia", "Kate", "Lily", "Mia", "Nora", "Olivia", "Penelope", Rose, "Sophia", "Victoria", "Violet", "Zoe", "Clara"],
+                f: ["Amelia", "Charlotte", "Emma", "Evelyn", "Grace", "Hannah", "Isabella", "Julia", "Kate", "Lily", "Mia", "Nora", "Olivia", "Penelope", "Rose", "Sophia", "Victoria", "Violet", "Zoe", "Clara"],
                 l: ["Smith", "Johnson", "Williams", "Brown", "Jones", "Miller", "Davis", "Wilson", "Anderson", "Taylor", "Thomas", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson", "White", "Harris", "Clark"]
             }
         };
@@ -517,7 +517,7 @@
             const countrySelect = document.getElementById('nameCountrySelect');
             const country = countrySelect.value || "United States";
             const gender = document.getElementById('nameGender').value;
-            const count = parseInt(document.getElementById('nameCount').value) || 100;
+            const count = parseInt(document.getElementById('nameCount').value) || 10;
 
             // Map Country to Specific Data
             let dataset = nameData.general;
