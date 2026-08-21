@@ -8,25 +8,55 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Helper function to extract code and links from text
+// Helper function to extract exact OTP code and clean full links
 function extractCodeAndLink(text, htmlContent) {
     let foundCode = null;
     let actionLink = null;
 
-    // OTP Code Match (4-8 digits)
+    // 1. OTP Code Match (4-8 digits)
     const codeMatch = text.match(/\b\d{4,8}\b/);
     if (codeMatch) foundCode = codeMatch[0];
 
-    // Link Match
-    const content = htmlContent || text;
-    const urlRegex = /(https?:\/\/[^\s"'<>]+)/gi;
-    const foundUrls = content.match(urlRegex) || [];
-    actionLink = foundUrls.find(link => 
-        !link.includes('.png') && 
-        !link.includes('.jpg') && 
-        !link.includes('.gif') &&
-        !link.includes('schemas.microsoft')
-    ) || null;
+    // 2. HTML href Tag Parsing (Extracts actual hidden activation/verification URLs)
+    if (htmlContent) {
+        const hrefRegex = /href=["'](https?:\/\/[^"']+)["']/gi;
+        let match;
+        const extractedLinks = [];
+
+        while ((match = hrefRegex.exec(htmlContent)) !== null) {
+            extractedLinks.push(match[1]);
+        }
+
+        // Filter out images, schemas, and unsubscribe links
+        actionLink = extractedLinks.find(link => {
+            const clean = link.toLowerCase();
+            return !clean.endsWith('.png') && 
+                   !clean.endsWith('.jpg') && 
+                   !clean.endsWith('.jpeg') &&
+                   !clean.endsWith('.gif') &&
+                   !clean.endsWith('.css') && 
+                   !clean.includes('schemas.microsoft') && 
+                   !clean.includes('w3.org') &&
+                   !clean.includes('schema.org') &&
+                   !clean.includes('unsubscribe');
+        }) || null;
+    }
+
+    // 3. Fallback: Plain Text URL Extraction if HTML link not found
+    if (!actionLink) {
+        const urlRegex = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/gi;
+        const foundUrls = text.match(urlRegex) || [];
+        actionLink = foundUrls.find(link => {
+            const clean = link.toLowerCase();
+            return !clean.endsWith('.png') && 
+                   !clean.endsWith('.jpg') && 
+                   !clean.includes('schemas.microsoft');
+        }) || null;
+    }
+
+    if (actionLink) {
+        actionLink = actionLink.replace(/[.,;)]+$/, '');
+    }
 
     return { foundCode, actionLink };
 }
@@ -56,7 +86,6 @@ function fetchViaImap(host, email, password) {
                         return resolve({ success: false, error: 'No emails found.' });
                     }
 
-                    // Get last 3 recent emails
                     const recent = results.slice(-3);
                     const fetch = imap.fetch(recent, { bodies: '' });
                     let parsedCount = 0;
@@ -70,8 +99,8 @@ function fetchViaImap(host, email, password) {
                                 const html = parsed.html || '';
                                 const extracted = extractCodeAndLink(`${parsed.subject} ${text}`, html);
 
-                                if (extracted.foundCode) foundData.foundCode = extracted.foundCode;
-                                if (extracted.actionLink) foundData.actionLink = extracted.actionLink;
+                                if (extracted.foundCode && !foundData.foundCode) foundData.foundCode = extracted.foundCode;
+                                if (extracted.actionLink && !foundData.actionLink) foundData.actionLink = extracted.actionLink;
 
                                 if (parsedCount === recent.length) {
                                     imap.end();
@@ -108,7 +137,7 @@ app.post('/api/get-code', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Account data is required.' });
         }
 
-        // 1. Gmail IMAP Handling
+        // 1. Gmail IMAP
         if (provider === 'gmail') {
             const parts = accountData.split('|');
             if (parts.length < 2) {
@@ -119,7 +148,7 @@ app.post('/api/get-code', async (req, res) => {
             return res.json(result);
         }
 
-        // 2. AT&T IMAP Handling
+        // 2. AT&T IMAP
         if (provider === 'att') {
             const parts = accountData.split('|');
             if (parts.length < 2) {
@@ -130,7 +159,7 @@ app.post('/api/get-code', async (req, res) => {
             return res.json(result);
         }
 
-        // 3. Outlook / Hotmail (Microsoft Graph API) Handling
+        // 3. Outlook / Hotmail (Microsoft Graph API)
         const parts = accountData.split('|');
         if (parts.length < 4) {
             return res.status(400).json({ success: false, error: 'Invalid format. Use email|password|refresh_token|client_id' });
@@ -164,8 +193,10 @@ app.post('/api/get-code', async (req, res) => {
         let actionLink = null;
 
         for (const msg of messages) {
-            const bodyContent = msg.body?.content || msg.bodyPreview || '';
-            const extracted = extractCodeAndLink(`${msg.subject} ${bodyContent}`, bodyContent);
+            const htmlBody = msg.body?.content || '';
+            const textBody = msg.bodyPreview || '';
+            const extracted = extractCodeAndLink(`${msg.subject} ${textBody}`, htmlBody);
+
             if (extracted.foundCode && !foundCode) foundCode = extracted.foundCode;
             if (extracted.actionLink && !actionLink) actionLink = extracted.actionLink;
             if (foundCode && actionLink) break;
