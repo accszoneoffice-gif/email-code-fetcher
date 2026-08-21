@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Email Verification Codes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen p-6">
+    <div class="max-w-3xl mx-auto bg-white rounded-xl shadow-md p-6">
+        <h2 class="text-xl font-bold mb-4 text-slate-800">Get Hotmail/Outlook Verification Code</h2>
+        
+        <label class="block text-sm font-medium mb-1">Account Details</label>
+        <textarea id="inputData" rows="3" class="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 font-mono text-sm" placeholder="email|password|refresh_token|client_id"></textarea>
+        <p class="text-xs text-gray-500 mt-1">Format: email|password|refresh_token|client_id</p>
+
+        <button onclick="getCode()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded mt-4">
+            Get Verification Code
+        </button>
+
+        <div id="resultBox" class="mt-6 p-4 rounded bg-gray-50 border hidden">
+            <h3 class="font-semibold text-gray-700">Result:</h3>
+            <p id="codeDisplay" class="text-2xl font-bold text-green-600 mt-1"></p>
+        </div>
+    </div>
+
+    <script>
+        async function getCode() {
+            const rawData = document.getElementById('inputData').value.trim();
+            const parts = rawData.split('|');
+
+            if (parts.length < 4) {
+                alert("সঠিক ফরম্যাটে তথ্য দিন: email|password|refresh_token|client_id");
+                return;
+            }
+
+            const [email, password, refresh_token, client_id] = parts;
+
+            const response = await fetch('/api/fetch-hotmail', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password, refresh_token, client_id })
+            });
+
+            const data = await response.json();
+            const resultBox = document.getElementById('resultBox');
+            const codeDisplay = document.getElementById('codeDisplay');
+
+            resultBox.classList.remove('hidden');
+            if (data.success) {
+                codeDisplay.innerText = "Code: " + data.code;
+            } else {
+                codeDisplay.innerText = "Error: " + JSON.stringify(data.error);
+            }
+        }
+    </script>
+</body>
+</html>
