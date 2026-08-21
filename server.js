@@ -6,117 +6,77 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ইমেইল বডি থেকে ৬ বা ৫ ডিজিটের ওটিপি (OTP) বা ভেরিফিকেশন কোড খুঁজে বের করার ফাংশন
-function extractOTP(text) {
-    if (!text) return null;
-    
-    // ১. সাধারণ ৬ বা ৪-৮ ডিজিটের কোড খোঁজা (যেমন: 123456, 47164)
-    const codeMatch = text.match(/\b\d{4,8}\b/);
-    if (codeMatch) return codeMatch[0];
-
-    // ২. আলফানিউমেরিক কোড খোঁজা (যেমন: G-123456)
-    const alphaCodeMatch = text.match(/\b[A-Za-z0-9]{5,8}\b/);
-    if (alphaCodeMatch) return alphaCodeMatch[0];
-
-    return null;
-}
-
 app.post('/api/get-code', async (req, res) => {
     try {
         const { accountData } = req.body;
-
         if (!accountData) {
-            return res.status(400).json({ success: false, error: "Account details are required" });
+            return res.status(400).json({ success: false, error: 'Account data is required.' });
         }
 
-        // ইনপুট ফরম্যাট: email|password|refresh_token|client_id
-        const parts = accountData.trim().split('|').map(p => p.trim());
+        const parts = accountData.split('|');
         if (parts.length < 4) {
-            return res.status(400).json({ 
-                success: false, 
-                error: "Invalid format. Required: email|password|refresh_token|client_id" 
-            });
+            return res.status(400).json({ success: false, error: 'Invalid format. Use email|password|refresh_token|client_id' });
         }
 
-        const [email, password, refreshToken, clientId] = parts;
+        const [email, password, refreshToken, clientId] = parts.map(p => p.trim());
 
-        // ১. মাইক্রোসফটের অফিশিয়াল ওথ২ এন্ডপয়েন্ট থেকে নতুন Access Token নেওয়া
+        // OAuth2 Access Token Fetching
         const tokenParams = new URLSearchParams({
             client_id: clientId,
             grant_type: 'refresh_token',
             refresh_token: refreshToken,
-            scope: 'https://outlook.office.com/mail.read'
+            scope: 'https://graph.microsoft.com/Mail.Read'
         });
 
-        let tokenResponse;
-        try {
-            tokenResponse = await axios.post(
-                'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-                tokenParams.toString(),
-                { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-            );
-        } catch (tokenErr) {
-            return res.status(400).json({
-                success: false,
-                error: "Failed to authenticate with Microsoft. Invalid Refresh Token or Client ID."
-            });
-        }
+        const tokenRes = await axios.post('https://login.microsoftonline.com/common/oauth2/v2.0/token', tokenParams.toString(), {
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        });
 
-        const accessToken = tokenResponse.data.access_token;
+        const accessToken = tokenRes.data.access_token;
 
-        // ২. মাইক্রোসফট আউটলুক/গ্রাফ এপিআই দিয়ে সাম্প্রতিক সব ইমেইল ফেচ করা (কোনো প্ল্যাটফর্ম ফিল্টার ছাড়া)
-        const mailResponse = await axios.get(
-            'https://outlook.office.com/api/v2.0/me/messages?$top=5&$select=Subject,From,Body,ReceivedDateTime',
-            {
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Accept': 'application/json'
-                }
-            }
-        );
+        // Fetch Recent Emails via Microsoft Graph API
+        const mailRes = await axios.get('https://graph.microsoft.com/v1.0/me/messages?$top=5&$select=subject,bodyPreview,body', {
+            headers: { Authorization: `Bearer ${accessToken}` }
+        });
 
-        const messages = mailResponse.data.value;
-
+        const messages = mailRes.data.value;
         if (!messages || messages.length === 0) {
-            return res.json({ success: false, error: "No emails found in this inbox." });
+            return res.json({ success: false, error: 'No emails found in the inbox.' });
         }
 
-        // ৩. যেকোনো সোশ্যাল মিডিয়া বা সার্ভিস থেকে আসা সাম্প্রতিক ইমেইল প্রসেস করা
         let foundCode = null;
-        let formattedMessages = [];
+        let actionLink = null;
 
         for (const msg of messages) {
-            const sender = msg.From?.EmailAddress?.Address || msg.From?.EmailAddress?.Name || 'Unknown';
-            const subject = msg.Subject || 'No Subject';
-            const bodyContent = msg.Body?.Content || '';
+            const bodyContent = msg.body?.content || msg.bodyPreview || '';
+            const fullText = `${msg.subject} ${bodyContent}`;
 
-            // ওটিপি বা কোড এক্সট্রাক্ট করা
-            const code = extractOTP(subject) || extractOTP(bodyContent);
-
-            if (!foundCode && code) {
-                foundCode = code; // সর্বশেষে আসা ইমেইলের কোডটি ধরা হবে
+            // OTP Code Matching (4-8 digits)
+            if (!foundCode) {
+                const codeMatch = fullText.match(/\b\d{4,8}\b/);
+                if (codeMatch) foundCode = codeMatch[0];
             }
 
-            formattedMessages.push({
-                from: sender,
-                subject: subject,
-                date: msg.ReceivedDateTime,
-                code: code || 'N/A'
-            });
+            // Link Extraction (Filtering out tracking images/assets)
+            if (!actionLink) {
+                const urlRegex = /(https?:\/\/[^\s"'<>]+)/gi;
+                const foundUrls = bodyContent.match(urlRegex) || [];
+                actionLink = foundUrls.find(link => 
+                    !link.includes('.png') && 
+                    !link.includes('.jpg') && 
+                    !link.includes('.gif') &&
+                    !link.includes('schemas.microsoft')
+                ) || null;
+            }
+
+            if (foundCode && actionLink) break;
         }
 
-        if (foundCode) {
-            return res.json({
-                success: true,
-                code: foundCode,
-                messages: formattedMessages
-            });
-        } else {
-            return res.json({
-                success: false,
-                error: "Emails retrieved, but no verification code was detected in recent messages."
-            });
-        }
+        return res.json({
+            success: true,
+            code: foundCode,
+            link: actionLink
+        });
 
     } catch (err) {
         return res.status(500).json({
@@ -127,6 +87,4 @@ app.post('/api/get-code', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
