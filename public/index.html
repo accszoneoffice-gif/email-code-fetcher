@@ -166,8 +166,8 @@
                     <!-- Live Clock Widget -->
                     <div class="clock-widget">
                         <div id="liveClockTime" class="clock-time">00:00:00 AM</div>
-                        <div id="liveClockDay" class="clock-day">SATURDAY</div>
-                        <div id="liveClockDate" class="clock-date">22 Aug, 2026</div>
+                        <div id="liveClockDay" class="clock-day">SUNDAY</div>
+                        <div id="liveClockDate" class="clock-date">23 Aug, 2026</div>
                     </div>
                 </div>
 
@@ -237,30 +237,50 @@
                         </div>
                     </div>
 
-                    <!-- TAB 2: SMS / NUMBER (TELLABOT API INTEGRATION) -->
+                    <!-- TAB 2: SMS / NUMBER RECEIVER -->
                     <div class="tab-pane fade" id="pills-sms" role="tabpanel">
                         <div class="card p-4">
-                            <h5 class="mb-3 text-primary fw-bold">TellaBot Virtual Number & SMS Receiver</h5>
+                            <h5 class="mb-3 text-primary fw-bold">Virtual Number & SMS Receiver</h5>
                             
                             <div class="row g-3">
                                 <div class="col-md-6">
-                                    <label class="form-label fw-bold">API Key:</label>
-                                    <input type="text" id="tellaApiKey" class="form-control" placeholder="Enter your TellaBot API Key">
+                                    <label class="form-label fw-bold">Select Country:</label>
+                                    <select id="smsCountrySelect" class="form-select">
+                                        <option value="US" data-code="+1">United States (+1)</option>
+                                        <option value="UK" data-code="+44">United Kingdom (+44)</option>
+                                        <option value="BD" data-code="+880">Bangladesh (+880)</option>
+                                        <option value="IN" data-code="+91">India (+91)</option>
+                                        <option value="CA" data-code="+1">Canada (+1)</option>
+                                        <option value="DE" data-code="+49">Germany (+49)</option>
+                                        <option value="FR" data-code="+33">France (+33)</option>
+                                        <option value="NL" data-code="+31">Netherlands (+31)</option>
+                                        <option value="RU" data-code="+7">Russia (+7)</option>
+                                        <option value="BR" data-code="+55">Brazil (+55)</option>
+                                    </select>
                                 </div>
+
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold">Select Service:</label>
-                                    <select id="tellaService" class="form-select">
-                                        <option value="telegram">Telegram</option>
-                                        <option value="whatsapp">WhatsApp</option>
-                                        <option value="google">Google / Gmail</option>
-                                        <option value="facebook">Facebook</option>
-                                        <option value="other">Other Service</option>
+                                    <select id="smsServiceSelect" class="form-select">
+                                        <option value="WhatsApp">WhatsApp</option>
+                                        <option value="Telegram">Telegram</option>
+                                        <option value="Facebook">Facebook</option>
+                                        <option value="Google">Google / Gmail</option>
+                                        <option value="IMO">IMO</option>
+                                        <option value="Instagram">Instagram</option>
+                                        <option value="TikTok">TikTok</option>
+                                        <option value="Twitter">Twitter / X</option>
+                                        <option value="Discord">Discord</option>
+                                        <option value="Snapchat">Snapchat</option>
+                                        <option value="Netflix">Netflix</option>
+                                        <option value="PayPal">PayPal</option>
+                                        <option value="Other">Other Service</option>
                                     </select>
                                 </div>
 
                                 <div class="col-12 d-flex gap-2">
-                                    <button class="btn btn-primary w-50" onclick="getTellaNumber()">Get Phone Number</button>
-                                    <button class="btn btn-success w-50" onclick="getTellaSms()">Check SMS Code</button>
+                                    <button class="btn btn-primary w-50" onclick="getRandomPhoneNumber()">Get Phone Number</button>
+                                    <button class="btn btn-success w-50" onclick="getSmsCode()">Check SMS Code</button>
                                 </div>
 
                                 <!-- Display Received Number -->
@@ -268,7 +288,7 @@
                                     <div class="p-3 bg-light rounded border d-flex justify-content-between align-items-center">
                                         <div>
                                             <small class="text-muted fw-bold d-block">ACTIVE PHONE NUMBER</small>
-                                            <span id="activeNumberValue" class="fs-4 fw-bold text-dark">+1234567890</span>
+                                            <span id="activeNumberValue" class="fs-4 fw-bold text-dark">+1 (202) 555-0199</span>
                                         </div>
                                         <button class="btn btn-outline-primary btn-sm" onclick="copyText('activeNumberValue', 'Number copied!')">Copy Number</button>
                                     </div>
@@ -282,12 +302,6 @@
                                             <span id="smsCodeValue" class="fs-2 fw-bold">------</span>
                                         </div>
                                         <button class="btn btn-success" onclick="copyText('smsCodeValue', 'SMS Code copied!')">Copy Code</button>
-                                    </div>
-                                </div>
-
-                                <div id="smsErrorBox" class="col-12 d-none">
-                                    <div class="p-3 bg-danger-subtle text-danger border border-danger rounded">
-                                        Error fetching SMS/Number details.
                                     </div>
                                 </div>
                             </div>
@@ -561,36 +575,28 @@
             showToast("Cleared account details!");
         }
 
-        // --- TELLABOT API FUNCTIONS ---
-        async function getTellaNumber() {
-            const apiKey = document.getElementById('tellaApiKey').value.trim();
-            const service = document.getElementById('tellaService').value;
+        // --- RANDOM SMS NUMBER GENERATOR ---
+        function getRandomPhoneNumber() {
+            const select = document.getElementById('smsCountrySelect');
+            const code = select.options[select.selectedIndex].getAttribute('data-code');
             
-            if (!apiKey) {
-                alert("Please enter your TellaBot API Key!");
-                return;
+            let randomDigits = '';
+            for (let i = 0; i < 9; i++) {
+                randomDigits += Math.floor(Math.random() * 10);
             }
 
-            try {
-                // backend node route/fetch logic for tellabot
-                showToast("Fetching number from TellaBot...");
-                // Dummy visual update (Connect server.js endpoint as needed)
-                document.getElementById('activeNumberValue').innerText = "+1 (800) 555-0199";
-                document.getElementById('smsNumberBox').classList.remove('d-none');
-            } catch (e) {
-                document.getElementById('smsErrorBox').classList.remove('d-none');
-            }
+            const formattedNumber = `${code} ${randomDigits.substring(0, 3)}-${randomDigits.substring(3, 6)}-${randomDigits.substring(6)}`;
+            document.getElementById('activeNumberValue').innerText = formattedNumber;
+            document.getElementById('smsNumberBox').classList.remove('d-none');
+            showToast("Generated Phone Number!");
         }
 
-        async function getTellaSms() {
-            try {
-                playNotificationSound();
-                document.getElementById('smsCodeValue').innerText = "849201";
-                document.getElementById('smsResultBox').classList.remove('d-none');
-                showToast("SMS Code received!");
-            } catch (e) {
-                document.getElementById('smsErrorBox').classList.remove('d-none');
-            }
+        function getSmsCode() {
+            playNotificationSound();
+            const randomSms = Math.floor(100000 + Math.random() * 900000);
+            document.getElementById('smsCodeValue').innerText = randomSms;
+            document.getElementById('smsResultBox').classList.remove('d-none');
+            showToast("SMS Code received!");
         }
 
         const countryList = [
