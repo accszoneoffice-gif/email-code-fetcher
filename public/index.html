@@ -166,7 +166,6 @@
                                 <label class="form-label text-muted fw-semibold">SELECT EMAIL PROVIDER</label>
                                 <select id="providerSelect" class="form-select fw-bold text-dark" onchange="updatePlaceholder()">
                                     <option value="outlook">Outlook / Hotmail</option>
-                                    <option value="hotmail01">Hotmail / Outlook 01</option>
                                     <option value="gmail">Gmail</option>
                                     <option value="att">AT&T Mail</option>
                                 </select>
@@ -568,8 +567,6 @@
             const input = document.getElementById('accountData');
             if (provider === 'outlook') {
                 input.placeholder = "email|password|refresh_token|client_id";
-            } else if (provider === 'hotmail01') {
-                input.placeholder = "email:password:refresh_token:client_id";
             } else if (provider === 'gmail' || provider === 'att') {
                 input.placeholder = "email|app_password";
             }
@@ -738,15 +735,8 @@
         document.getElementById('accountData').addEventListener('input', function(e) {
             const val = e.target.value.trim();
             const emailBox = document.getElementById('emailBox');
-            let email = "";
-
             if (val.includes('|')) {
-                email = val.split('|')[0].trim();
-            } else if (val.includes(':')) {
-                email = val.split(':')[0].trim();
-            }
-
-            if (email && email.includes('@')) {
+                const email = val.split('|')[0].trim();
                 document.getElementById('extractedEmail').innerText = email;
                 emailBox.classList.remove('d-none');
             } else {
