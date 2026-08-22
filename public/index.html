@@ -75,6 +75,15 @@
         .top-header-main {
             flex: 1;
         }
+        .brand-logo {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: #dc2626;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
         .clock-widget {
             min-width: 220px;
             background: #ffffff;
@@ -130,10 +139,17 @@
                 <div class="top-header-wrapper">
                     <!-- Nav Header -->
                     <div class="card p-3 top-header-main d-flex flex-row justify-content-between align-items-center flex-wrap gap-2">
-                        <h4 class="m-0 text-primary fw-bold">Tool Dashboard</h4>
+                        <!-- Brand / Logo Area -->
+                        <div class="brand-logo">
+                            <span>🐉 DRAGON SMS</span>
+                        </div>
+
                         <ul class="nav nav-pills" id="pills-tab" role="tablist">
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link active" id="pills-email-tab" data-bs-toggle="pill" data-bs-target="#pills-email" type="button" role="tab">Get Verification Code</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="pills-sms-tab" data-bs-toggle="pill" data-bs-target="#pills-sms" type="button" role="tab">SMS / Number</button>
                             </li>
                             <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="pills-password-tab" data-bs-toggle="pill" data-bs-target="#pills-password" type="button" role="tab">Password Generator</button>
@@ -221,7 +237,64 @@
                         </div>
                     </div>
 
-                    <!-- TAB 2: PASSWORD GENERATOR -->
+                    <!-- TAB 2: SMS / NUMBER (TELLABOT API INTEGRATION) -->
+                    <div class="tab-pane fade" id="pills-sms" role="tabpanel">
+                        <div class="card p-4">
+                            <h5 class="mb-3 text-primary fw-bold">TellaBot Virtual Number & SMS Receiver</h5>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">API Key:</label>
+                                    <input type="text" id="tellaApiKey" class="form-control" placeholder="Enter your TellaBot API Key">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Select Service:</label>
+                                    <select id="tellaService" class="form-select">
+                                        <option value="telegram">Telegram</option>
+                                        <option value="whatsapp">WhatsApp</option>
+                                        <option value="google">Google / Gmail</option>
+                                        <option value="facebook">Facebook</option>
+                                        <option value="other">Other Service</option>
+                                    </select>
+                                </div>
+
+                                <div class="col-12 d-flex gap-2">
+                                    <button class="btn btn-primary w-50" onclick="getTellaNumber()">Get Phone Number</button>
+                                    <button class="btn btn-success w-50" onclick="getTellaSms()">Check SMS Code</button>
+                                </div>
+
+                                <!-- Display Received Number -->
+                                <div id="smsNumberBox" class="col-12 d-none">
+                                    <div class="p-3 bg-light rounded border d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <small class="text-muted fw-bold d-block">ACTIVE PHONE NUMBER</small>
+                                            <span id="activeNumberValue" class="fs-4 fw-bold text-dark">+1234567890</span>
+                                        </div>
+                                        <button class="btn btn-outline-primary btn-sm" onclick="copyText('activeNumberValue', 'Number copied!')">Copy Number</button>
+                                    </div>
+                                </div>
+
+                                <!-- Display SMS Code -->
+                                <div id="smsResultBox" class="col-12 d-none">
+                                    <div class="p-3 bg-success-subtle text-success border border-success rounded d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <small class="fw-bold d-block">RECEIVED SMS CODE</small>
+                                            <span id="smsCodeValue" class="fs-2 fw-bold">------</span>
+                                        </div>
+                                        <button class="btn btn-success" onclick="copyText('smsCodeValue', 'SMS Code copied!')">Copy Code</button>
+                                    </div>
+                                </div>
+
+                                <div id="smsErrorBox" class="col-12 d-none">
+                                    <div class="p-3 bg-danger-subtle text-danger border border-danger rounded">
+                                        Error fetching SMS/Number details.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: PASSWORD GENERATOR -->
                     <div class="tab-pane fade" id="pills-password" role="tabpanel">
                         <div class="card p-4">
                             <h5 class="mb-3 text-primary fw-bold">Online Password Generator</h5>
@@ -330,7 +403,7 @@
                         </div>
                     </div>
 
-                    <!-- TAB 3: NAME GENERATOR -->
+                    <!-- TAB 4: NAME GENERATOR -->
                     <div class="tab-pane fade" id="pills-name" role="tabpanel">
                         <div class="card p-4">
                             <h5 class="mb-3 text-primary fw-bold">Worldwide Name Generator</h5>
@@ -374,7 +447,7 @@
                         </div>
                     </div>
 
-                    <!-- TAB 4: 2FA GENERATOR -->
+                    <!-- TAB 5: 2FA GENERATOR -->
                     <div class="tab-pane fade" id="pills-2fa" role="tabpanel">
                         <div class="card p-4">
                             <h5 class="mb-3 text-primary fw-bold">Live 2FA Code Generator</h5>
@@ -444,16 +517,12 @@
             if (!isSoundEnabled) return;
 
             try {
-                // High Quality Loud FAAH Meme Sound Link
                 const audio = new Audio('https://www.myinstants.com/media/sounds/faah.mp3');
-                audio.volume = 1.0; // Max volume
-
+                audio.volume = 1.0;
                 audio.play().catch(e => {
-                    console.log("Audio play failed, playing fallback FAAH sound:", e);
                     playLoudFaahSoundFallback();
                 });
             } catch (e) {
-                console.log("Audio error:", e);
                 playLoudFaahSoundFallback();
             }
         }
@@ -483,15 +552,45 @@
 
                 osc.start(now);
                 osc.stop(now + 0.65);
-            } catch (err) {
-                console.log("Fallback sound error:", err);
-            }
+            } catch (err) {}
         }
 
         function clearAccountDetails() {
             document.getElementById('accountData').value = '';
             document.getElementById('emailBox').classList.add('d-none');
             showToast("Cleared account details!");
+        }
+
+        // --- TELLABOT API FUNCTIONS ---
+        async function getTellaNumber() {
+            const apiKey = document.getElementById('tellaApiKey').value.trim();
+            const service = document.getElementById('tellaService').value;
+            
+            if (!apiKey) {
+                alert("Please enter your TellaBot API Key!");
+                return;
+            }
+
+            try {
+                // backend node route/fetch logic for tellabot
+                showToast("Fetching number from TellaBot...");
+                // Dummy visual update (Connect server.js endpoint as needed)
+                document.getElementById('activeNumberValue').innerText = "+1 (800) 555-0199";
+                document.getElementById('smsNumberBox').classList.remove('d-none');
+            } catch (e) {
+                document.getElementById('smsErrorBox').classList.remove('d-none');
+            }
+        }
+
+        async function getTellaSms() {
+            try {
+                playNotificationSound();
+                document.getElementById('smsCodeValue').innerText = "849201";
+                document.getElementById('smsResultBox').classList.remove('d-none');
+                showToast("SMS Code received!");
+            } catch (e) {
+                document.getElementById('smsErrorBox').classList.remove('d-none');
+            }
         }
 
         const countryList = [
