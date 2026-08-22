@@ -569,7 +569,7 @@
             if (provider === 'outlook') {
                 input.placeholder = "email|password|refresh_token|client_id";
             } else if (provider === 'hotmail01') {
-                input.placeholder = "email|password";
+                input.placeholder = "email:password:refresh_token:client_id";
             } else if (provider === 'gmail' || provider === 'att') {
                 input.placeholder = "email|app_password";
             }
@@ -738,8 +738,15 @@
         document.getElementById('accountData').addEventListener('input', function(e) {
             const val = e.target.value.trim();
             const emailBox = document.getElementById('emailBox');
+            let email = "";
+
             if (val.includes('|')) {
-                const email = val.split('|')[0].trim();
+                email = val.split('|')[0].trim();
+            } else if (val.includes(':')) {
+                email = val.split(':')[0].trim();
+            }
+
+            if (email && email.includes('@')) {
                 document.getElementById('extractedEmail').innerText = email;
                 emailBox.classList.remove('d-none');
             } else {
