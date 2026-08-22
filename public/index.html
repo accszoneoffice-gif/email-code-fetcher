@@ -136,9 +136,6 @@
                                 <button class="nav-link active" id="pills-email-tab" data-bs-toggle="pill" data-bs-target="#pills-email" type="button" role="tab">Get Verification Code</button>
                             </li>
                             <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="pills-social-tab" data-bs-toggle="pill" data-bs-target="#pills-social" type="button" role="tab">Social Checker</button>
-                            </li>
-                            <li class="nav-item" role="presentation">
                                 <button class="nav-link" id="pills-password-tab" data-bs-toggle="pill" data-bs-target="#pills-password" type="button" role="tab">Password Generator</button>
                             </li>
                             <li class="nav-item" role="presentation">
@@ -224,27 +221,7 @@
                         </div>
                     </div>
 
-                    <!-- TAB 2: SOCIAL CHECKER -->
-                    <div class="tab-pane fade" id="pills-social" role="tabpanel">
-                        <div class="card p-4">
-                            <h5 class="mb-3 text-primary fw-bold">Social Media Profile Status Checker</h5>
-                            <p class="text-muted small">Enter profile URLs line by line (Facebook, Instagram, Twitter/X, Reddit, LinkedIn).</p>
-
-                            <div class="mb-3">
-                                <label class="form-label text-muted fw-semibold">PROFILE URLS (ONE PER LINE)</label>
-                                <textarea id="socialUrls" class="form-control" rows="5" placeholder="https://www.facebook.com/zuck&#10;https://www.instagram.com/instagram&#10;https://x.com/elonmusk"></textarea>
-                            </div>
-
-                            <button class="btn btn-primary w-100 mb-3" id="checkSocialBtn" onclick="checkSocialProfiles()">Check Status</button>
-
-                            <div id="socialResults" class="d-none">
-                                <h6 class="fw-bold text-secondary mb-2">Check Results:</h6>
-                                <div id="socialListGroup" class="list-group"></div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- TAB 3: PASSWORD GENERATOR -->
+                    <!-- TAB 2: PASSWORD GENERATOR -->
                     <div class="tab-pane fade" id="pills-password" role="tabpanel">
                         <div class="card p-4">
                             <h5 class="mb-3 text-primary fw-bold">Online Password Generator</h5>
@@ -353,7 +330,7 @@
                         </div>
                     </div>
 
-                    <!-- TAB 4: NAME GENERATOR -->
+                    <!-- TAB 3: NAME GENERATOR -->
                     <div class="tab-pane fade" id="pills-name" role="tabpanel">
                         <div class="card p-4">
                             <h5 class="mb-3 text-primary fw-bold">Worldwide Name Generator</h5>
@@ -397,7 +374,7 @@
                         </div>
                     </div>
 
-                    <!-- TAB 5: 2FA GENERATOR -->
+                    <!-- TAB 4: 2FA GENERATOR -->
                     <div class="tab-pane fade" id="pills-2fa" role="tabpanel">
                         <div class="card p-4">
                             <h5 class="mb-3 text-primary fw-bold">Live 2FA Code Generator</h5>
@@ -609,57 +586,6 @@
             navigator.clipboard.writeText(text).then(() => {
                 showToast(successMsg);
             });
-        }
-
-        // --- SOCIAL MEDIA CHECKER ---
-        async function checkSocialProfiles() {
-            const text = document.getElementById('socialUrls').value.trim();
-            if (!text) {
-                alert("Please enter at least one URL.");
-                return;
-            }
-
-            const urls = text.split('\n').map(u => u.trim()).filter(u => u.length > 0);
-            const btn = document.getElementById('checkSocialBtn');
-            const resultsDiv = document.getElementById('socialResults');
-            const listGroup = document.getElementById('socialListGroup');
-
-            btn.disabled = true;
-            btn.innerText = "Checking...";
-            resultsDiv.classList.remove('d-none');
-            listGroup.innerHTML = '<div class="p-3 text-muted">Checking URLs, please wait...</div>';
-
-            try {
-                const res = await fetch('/api/check-social', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ urls })
-                });
-
-                const data = await res.json();
-                listGroup.innerHTML = '';
-
-                if (data.results) {
-                    data.results.forEach(item => {
-                        const isLive = item.status === 'LIVE';
-                        const badgeClass = isLive ? 'bg-success' : 'bg-danger';
-                        const statusText = isLive ? 'LIVE / ACTIVE' : 'DISABLED / NOT FOUND';
-
-                        const html = `
-                            <div class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
-                                <a href="${item.url}" target="_blank" class="text-truncate text-decoration-none fw-bold" style="max-width: 70%;">${item.url}</a>
-                                <span class="badge ${badgeClass} fs-6">${statusText}</span>
-                            </div>
-                        `;
-                        listGroup.innerHTML += html;
-                    });
-                }
-            } catch (err) {
-                listGroup.innerHTML = '<div class="p-3 text-danger">Error checking social profiles.</div>';
-            } finally {
-                btn.disabled = false;
-                btn.innerText = "Check Status";
-            }
         }
 
         // --- PASSWORD GENERATOR ---
