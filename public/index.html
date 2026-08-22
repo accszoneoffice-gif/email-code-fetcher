@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Multi-Tool Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsOTP/1.0.0/jsOTP.min.js"></script>
     <style>
         body { background-color: #f4f7fe; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .card { border-radius: 15px; border: none; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
@@ -51,6 +52,18 @@
         .email-body-box a { color: #2563eb; text-decoration: underline; }
 
         .form-check-label { font-size: 14px; font-weight: 500; color: #374151; }
+
+        .twofa-code-box {
+            font-size: 3rem;
+            font-weight: 800;
+            letter-spacing: 6px;
+            color: #2563eb;
+        }
+        .timer-progress {
+            height: 6px;
+            border-radius: 3px;
+            transition: width 1s linear;
+        }
     </style>
 </head>
 <body>
@@ -73,6 +86,9 @@
                         </li>
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" id="pills-name-tab" data-bs-toggle="pill" data-bs-target="#pills-name" type="button" role="tab">Name Generator</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="pills-2fa-tab" data-bs-toggle="pill" data-bs-target="#pills-2fa" type="button" role="tab">2FA Generator</button>
                         </li>
                     </ul>
                 </div>
@@ -297,6 +313,36 @@
                                     <label class="form-label fw-bold">Generated Names:</label>
                                     <textarea id="generatedNamesResult" class="form-control" rows="8" readonly placeholder="Generated names will appear here..."></textarea>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 4: 2FA GENERATOR -->
+                    <div class="tab-pane fade" id="pills-2fa" role="tabpanel">
+                        <div class="card p-4">
+                            <h5 class="mb-3 text-primary fw-bold">Live 2FA Code Generator</h5>
+                            
+                            <div class="mb-3">
+                                <label class="form-label fw-bold text-muted">ENTER 2FA SECRET KEY OR OTPAUTH LINK</label>
+                                <input type="text" id="twoFaInput" class="form-control form-control-lg" placeholder="e.g. JBSWY3DPEHPK3PXP or otpauth://totp/..." oninput="start2FA()">
+                            </div>
+
+                            <div id="twoFaResultBox" class="p-4 bg-light rounded text-center border d-none">
+                                <small class="text-muted fw-bold text-uppercase d-block mb-1">Current 2FA Code</small>
+                                <div id="twoFaCode" class="twofa-code-box my-2">------</div>
+                                
+                                <div class="progress mb-3" style="height: 6px;">
+                                    <div id="twoFaTimerBar" class="progress-bar bg-primary timer-progress" style="width: 100%;"></div>
+                                </div>
+                                
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span id="twoFaTimerText" class="badge bg-secondary">Next update in 30s</span>
+                                    <button class="btn btn-success fw-bold" onclick="copyText('twoFaCode', '2FA Code copied!')">Copy 2FA Code</button>
+                                </div>
+                            </div>
+
+                            <div id="twoFaErrorBox" class="p-3 bg-danger-subtle text-danger border border-danger rounded mt-3 d-none">
+                                Invalid 2FA Secret Key or Format.
                             </div>
                         </div>
                     </div>
@@ -677,6 +723,76 @@
             } catch (err) {
                 errorBox.innerText = "Error connecting to server.";
                 errorBox.classList.remove('d-none');
+            }
+        }
+
+        // --- 2FA GENERATOR LOGIC ---
+        let twoFaInterval = null;
+
+        function extract2FASecret(input) {
+            let cleanInput = input.trim();
+            if (cleanInput.startsWith('otpauth://')) {
+                try {
+                    const url = new URL(cleanInput);
+                    const secret = url.searchParams.get('secret');
+                    return secret ? secret.toUpperCase() : null;
+                } catch (e) {
+                    return null;
+                }
+            }
+            return cleanInput.replace(/\s+/g, '').toUpperCase();
+        }
+
+        function start2FA() {
+            const rawInput = document.getElementById('twoFaInput').value;
+            const resultBox = document.getElementById('twoFaResultBox');
+            const errorBox = document.getElementById('twoFaErrorBox');
+            
+            if (twoFaInterval) clearInterval(twoFaInterval);
+
+            if (!rawInput.trim()) {
+                resultBox.classList.add('d-none');
+                errorBox.classList.add('d-none');
+                return;
+            }
+
+            const secret = extract2FASecret(rawInput);
+
+            try {
+                const totp = jsOTP.totp();
+                const code = totp.getOtp(secret);
+
+                if (code && !isNaN(code)) {
+                    errorBox.classList.add('d-none');
+                    resultBox.classList.remove('d-none');
+
+                    update2FACode(totp, secret);
+
+                    twoFaInterval = setInterval(() => {
+                        update2FACode(totp, secret);
+                    }, 1000);
+                } else {
+                    throw new Error("Invalid Code");
+                }
+            } catch (e) {
+                resultBox.classList.add('d-none');
+                errorBox.classList.remove('d-none');
+            }
+        }
+
+        function update2FACode(totp, secret) {
+            try {
+                const code = totp.getOtp(secret);
+                document.getElementById('twoFaCode').innerText = code;
+
+                const epoch = Math.floor(Date.now() / 1000);
+                const remainingSecs = 30 - (epoch % 30);
+                const percentage = (remainingSecs / 30) * 100;
+
+                document.getElementById('twoFaTimerBar').style.width = percentage + '%';
+                document.getElementById('twoFaTimerText').innerText = `Next update in ${remainingSecs}s`;
+            } catch (e) {
+                if (twoFaInterval) clearInterval(twoFaInterval);
             }
         }
     </script>
