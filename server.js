@@ -1,212 +1,173 @@
 const express = require('express');
+const cors = require('cors');
 const axios = require('axios');
-const path = require('path');
-const Imap = require('imap');
+const Imap = require('node-imap');
 const { simpleParser } = require('mailparser');
 
 const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(cors());
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static('public'));
 
-// Helper function to extract exact OTP code, clean verification link, and full mail body
-function extractCodeAndLink(text, htmlContent) {
-    let foundCode = null;
-    let actionLink = null;
+// --- 1. EMAIL FETCHER API ---
+app.post('/api/get-code', async (req, res) => {
+    const { provider, accountData } = req.body;
 
-    // 1. OTP Code Match (4-8 digits)
-    const codeMatch = text.match(/\b\d{4,8}\b/);
-    if (codeMatch) foundCode = codeMatch[0];
+    if (!accountData) {
+        return res.status(400).json({ success: false, error: 'Account data is required.' });
+    }
 
-    // 2. Extract Verification / Action Links from HTML
-    if (htmlContent) {
-        const hrefRegex = /href=["'](https?:\/\/[^"']+)["']/gi;
-        let match;
-        const extractedLinks = [];
+    try {
+        if (provider === 'outlook') {
+            const parts = accountData.split('|').map(p => p.trim());
+            if (parts.length < 4) {
+                return res.status(400).json({ success: false, error: 'Format error: email|password|refresh_token|client_id required.' });
+            }
 
-        while ((match = hrefRegex.exec(htmlContent)) !== null) {
-            extractedLinks.push(match[1]);
+            const [email, password, refreshToken, clientId] = parts;
+
+            // Get Access Token using Refresh Token
+            const tokenResponse = await axios.post(
+                'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+                new URLSearchParams({
+                    client_id: clientId,
+                    grant_type: 'refresh_token',
+                    refresh_token: refreshToken,
+                    scope: 'https://outlook.office.com/IMAP.AccessAsUser.All'
+                }),
+                { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+            );
+
+            const accessToken = tokenResponse.data.access_token;
+            if (!accessToken) {
+                return res.json({ success: false, error: 'Failed to get Microsoft access token.' });
+            }
+
+            // Generate XOAUTH2 Token
+            const authString = `user=${email}\x01auth=Bearer ${accessToken}\x01\x01`;
+            const xoauth2Token = Buffer.from(authString).toString('base64');
+
+            const imap = new Imap({
+                xoauth2: xoauth2Token,
+                host: 'outlook.office365.com',
+                port: 993,
+                tls: true,
+                tlsOptions: { rejectUnauthorized: false }
+            });
+
+            fetchLatestEmail(imap, res);
+
+        } else if (provider === 'gmail' || provider === 'att') {
+            const parts = accountData.split('|').map(p => p.trim());
+            if (parts.length < 2) {
+                return res.status(400).json({ success: false, error: 'Format error: email|app_password required.' });
+            }
+
+            const [email, appPassword] = parts;
+            const host = provider === 'gmail' ? 'imap.gmail.com' : 'imap.mail.att.net';
+
+            const imap = new Imap({
+                user: email,
+                password: appPassword,
+                host: host,
+                port: 993,
+                tls: true,
+                tlsOptions: { rejectUnauthorized: false }
+            });
+
+            fetchLatestEmail(imap, res);
+        } else {
+            return res.status(400).json({ success: false, error: 'Invalid provider selected.' });
         }
-
-        // Target primary verification/activation/confirm links (Reddit, Discord, social sites, etc.)
-        actionLink = extractedLinks.find(link => {
-            const clean = link.toLowerCase();
-            const isIgnored = clean.endsWith('.png') || 
-                              clean.endsWith('.jpg') || 
-                              clean.endsWith('.jpeg') || 
-                              clean.endsWith('.gif') || 
-                              clean.endsWith('.css') || 
-                              clean.includes('schemas.microsoft') || 
-                              clean.includes('w3.org') || 
-                              clean.includes('schema.org') || 
-                              clean.includes('unsubscribe') || 
-                              clean.includes('faq') || 
-                              clean.includes('contact');
-            return !isIgnored;
-        }) || null;
+    } catch (err) {
+        res.json({ success: false, error: err.message || 'Server error occurred.' });
     }
+});
 
-    // 3. Fallback: Plain Text Link Search
-    if (!actionLink) {
-        const urlRegex = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/gi;
-        const foundUrls = text.match(urlRegex) || [];
-        actionLink = foundUrls.find(link => {
-            const clean = link.toLowerCase();
-            return !clean.endsWith('.png') && 
-                   !clean.endsWith('.jpg') && 
-                   !clean.includes('schemas.microsoft') &&
-                   !clean.includes('unsubscribe');
-        }) || null;
-    }
+// Helper function to fetch last email via IMAP
+function fetchLatestEmail(imap, res) {
+    imap.once('ready', () => {
+        imap.openBox('INBOX', true, (err, box) => {
+            if (err || box.messages.total === 0) {
+                imap.end();
+                return res.json({ success: false, error: 'Inbox is empty or inaccessible.' });
+            }
 
-    if (actionLink) {
-        actionLink = actionLink.replace(/[.,;)]+$/, '');
-    }
-
-    return { foundCode, actionLink };
-}
-
-// IMAP Fetcher for Gmail and AT&T
-function fetchViaImap(host, email, password) {
-    return new Promise((resolve, reject) => {
-        const imap = new Imap({
-            user: email,
-            password: password,
-            host: host,
-            port: 993,
-            tls: true,
-            tlsOptions: { rejectUnauthorized: false }
-        });
-
-        imap.once('ready', () => {
-            imap.openBox('INBOX', true, (err, box) => {
-                if (err) {
-                    imap.end();
-                    return reject(err);
-                }
-
-                imap.search(['ALL'], (searchErr, results) => {
-                    if (searchErr || !results || !results.length) {
+            const fetch = imap.seq.fetch(`${box.messages.total}:${box.messages.total}`, { bodies: '' });
+            
+            fetch.on('message', (msg) => {
+                msg.on('body', (stream) => {
+                    simpleParser(stream, async (err, parsed) => {
                         imap.end();
-                        return resolve({ success: false, error: 'No emails found.' });
-                    }
+                        if (err) return res.json({ success: false, error: 'Failed to parse email.' });
 
-                    const recent = results.slice(-1); // Get latest email
-                    const fetch = imap.fetch(recent, { bodies: '' });
+                        const subject = parsed.subject || '';
+                        const text = parsed.text || '';
+                        const html = parsed.html || parsed.textAsHtml || '';
 
-                    fetch.on('message', (msg) => {
-                        msg.on('body', (stream) => {
-                            simpleParser(stream, async (err, parsed) => {
-                                const text = parsed.text || '';
-                                const html = parsed.html || parsed.textAsHtml || '';
-                                const extracted = extractCodeAndLink(`${parsed.subject} ${text}`, html);
+                        // Extract OTP Code (4-8 digits)
+                        const codeMatch = text.match(/\b\d{4,8}\b/) || html.match(/\b\d{4,8}\b/);
+                        const code = codeMatch ? codeMatch[0] : null;
 
-                                imap.end();
-                                resolve({
-                                    success: true,
-                                    subject: parsed.subject,
-                                    code: extracted.foundCode,
-                                    link: extracted.actionLink,
-                                    fullHtml: html || text.replace(/\n/g, '<br>')
-                                });
-                            });
+                        // Extract Verification Link
+                        const linkMatch = html.match(/href=["'](https?:\/\/[^"']+)["']/i) || text.match(/(https?:\/\/[^\s]+)/i);
+                        const link = linkMatch ? linkMatch[1] : null;
+
+                        res.json({
+                            success: true,
+                            subject: subject,
+                            code: code,
+                            link: link,
+                            fullHtml: html
                         });
-                    });
-
-                    fetch.once('error', (fErr) => {
-                        imap.end();
-                        reject(fErr);
                     });
                 });
             });
         });
-
-        imap.once('error', (err) => {
-            reject(err);
-        });
-
-        imap.connect();
     });
+
+    imap.once('error', (err) => {
+        res.json({ success: false, error: 'IMAP connection error: ' + err.message });
+    });
+
+    imap.connect();
 }
 
-app.post('/api/get-code', async (req, res) => {
-    try {
-        const { provider, accountData } = req.body;
-        if (!accountData) {
-            return res.status(400).json({ success: false, error: 'Account data is required.' });
-        }
-
-        // 1. Gmail IMAP
-        if (provider === 'gmail') {
-            const parts = accountData.split('|');
-            if (parts.length < 2) {
-                return res.status(400).json({ success: false, error: 'Format must be: email|app_password' });
-            }
-            const [email, appPassword] = parts.map(p => p.trim());
-            const result = await fetchViaImap('imap.gmail.com', email, appPassword);
-            return res.json(result);
-        }
-
-        // 2. AT&T IMAP
-        if (provider === 'att') {
-            const parts = accountData.split('|');
-            if (parts.length < 2) {
-                return res.status(400).json({ success: false, error: 'Format must be: email|app_password' });
-            }
-            const [email, appPassword] = parts.map(p => p.trim());
-            const result = await fetchViaImap('imap.mail.att.net', email, appPassword);
-            return res.json(result);
-        }
-
-        // 3. Outlook / Hotmail (Microsoft Graph API)
-        const parts = accountData.split('|');
-        if (parts.length < 4) {
-            return res.status(400).json({ success: false, error: 'Invalid format. Use email|password|refresh_token|client_id' });
-        }
-
-        const [email, password, refreshToken, clientId] = parts.map(p => p.trim());
-
-        const tokenParams = new URLSearchParams({
-            client_id: clientId,
-            grant_type: 'refresh_token',
-            refresh_token: refreshToken,
-            scope: 'https://graph.microsoft.com/Mail.Read'
-        });
-
-        const tokenRes = await axios.post('https://login.microsoftonline.com/common/oauth2/v2.0/token', tokenParams.toString(), {
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-        });
-
-        const accessToken = tokenRes.data.access_token;
-
-        const mailRes = await axios.get('https://graph.microsoft.com/v1.0/me/messages?$top=1&$select=subject,bodyPreview,body', {
-            headers: { Authorization: `Bearer ${accessToken}` }
-        });
-
-        const messages = mailRes.data.value;
-        if (!messages || messages.length === 0) {
-            return res.json({ success: false, error: 'No emails found.' });
-        }
-
-        const msg = messages[0];
-        const htmlBody = msg.body?.content || '';
-        const textBody = msg.bodyPreview || '';
-        const extracted = extractCodeAndLink(`${msg.subject} ${textBody}`, htmlBody);
-
-        return res.json({ 
-            success: true, 
-            subject: msg.subject,
-            code: extracted.foundCode, 
-            link: extracted.actionLink,
-            fullHtml: htmlBody || textBody.replace(/\n/g, '<br>')
-        });
-
-    } catch (err) {
-        return res.status(500).json({
-            success: false,
-            error: err.response ? JSON.stringify(err.response.data) : err.message
-        });
+// --- 2. SOCIAL MEDIA CHECKER API ---
+app.post('/api/check-social', async (req, res) => {
+    const { urls } = req.body;
+    if (!urls || !Array.isArray(urls)) {
+        return res.status(400).json({ error: 'URLs array is required.' });
     }
+
+    const results = [];
+
+    for (let url of urls) {
+        try {
+            const response = await axios.get(url, {
+                headers: {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+                },
+                timeout: 5000,
+                validateStatus: false
+            });
+
+            if (response.status === 200) {
+                results.push({ url, status: 'LIVE' });
+            } else {
+                results.push({ url, status: 'DISABLED' });
+            }
+        } catch (err) {
+            results.push({ url, status: 'DISABLED' });
+        }
+    }
+
+    res.json({ results });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Start Server
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
