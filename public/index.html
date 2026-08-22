@@ -444,6 +444,22 @@
             if (!isSoundEnabled) return;
 
             try {
+                // High Quality Loud FAAH Meme Sound Link
+                const audio = new Audio('https://www.myinstants.com/media/sounds/faah.mp3');
+                audio.volume = 1.0; // Max volume
+
+                audio.play().catch(e => {
+                    console.log("Audio play failed, playing fallback FAAH sound:", e);
+                    playLoudFaahSoundFallback();
+                });
+            } catch (e) {
+                console.log("Audio error:", e);
+                playLoudFaahSoundFallback();
+            }
+        }
+
+        function playLoudFaahSoundFallback() {
+            try {
                 if (!audioCtx) {
                     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 }
@@ -455,20 +471,20 @@
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
 
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(587.33, now);
-                osc.frequency.setValueAtTime(880, now + 0.1);
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(380, now);
+                osc.frequency.exponentialRampToValueAtTime(110, now + 0.65);
 
-                gain.gain.setValueAtTime(0.3, now);
-                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+                gain.gain.setValueAtTime(1.0, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
 
                 osc.connect(gain);
                 gain.connect(audioCtx.destination);
 
                 osc.start(now);
-                osc.stop(now + 0.4);
-            } catch (e) {
-                console.log("Audio play failed:", e);
+                osc.stop(now + 0.65);
+            } catch (err) {
+                console.log("Fallback sound error:", err);
             }
         }
 
