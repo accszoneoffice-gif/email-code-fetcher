@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors');
 const axios = require('axios');
 const Imap = require('node-imap');
 const { simpleParser } = require('mailparser');
@@ -6,6 +7,7 @@ const { simpleParser } = require('mailparser');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
@@ -139,19 +141,38 @@ app.post('/api/check-social', async (req, res) => {
 
     for (let url of urls) {
         try {
-            const response = await axios.get(url, {
+            let checkUrl = url.trim();
+            if (checkUrl.includes('facebook.com') || checkUrl.includes('fb.com')) {
+                checkUrl = checkUrl.replace('www.facebook.com', 'mbasic.facebook.com').replace('web.facebook.com', 'mbasic.facebook.com');
+            }
+
+            const response = await axios.get(checkUrl, {
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
                 },
-                timeout: 5000,
+                timeout: 7000,
+                maxRedirects: 5,
                 validateStatus: false
             });
 
-            if (response.status === 200) {
-                results.push({ url, status: 'LIVE' });
+            const html = response.data.toString().toLowerCase();
+
+            if (checkUrl.includes('facebook.com')) {
+                if (html.includes('content not found') || html.includes('page not found') || html.includes('isn\'t available') || html.includes('account disabled')) {
+                    results.push({ url, status: 'DISABLED' });
+                } else {
+                    results.push({ url, status: 'LIVE' });
+                }
             } else {
-                results.push({ url, status: 'DISABLED' });
+                if (response.status === 200) {
+                    results.push({ url, status: 'LIVE' });
+                } else {
+                    results.push({ url, status: 'DISABLED' });
+                }
             }
+
         } catch (err) {
             results.push({ url, status: 'DISABLED' });
         }
@@ -160,6 +181,7 @@ app.post('/api/check-social', async (req, res) => {
     res.json({ results });
 });
 
+// Start Server
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
