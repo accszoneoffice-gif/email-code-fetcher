@@ -65,6 +65,58 @@
             border-radius: 3px;
             transition: width 1s linear;
         }
+
+        /* Top Bar Container for Clock Alignment */
+        .top-header-wrapper {
+            display: flex;
+            gap: 20px;
+            align-items: stretch;
+            margin-bottom: 1.5rem;
+        }
+        .top-header-main {
+            flex: 1;
+        }
+        .clock-widget {
+            min-width: 220px;
+            background: #ffffff;
+            border-radius: 15px;
+            padding: 12px 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        .clock-time {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #2563eb;
+            line-height: 1.2;
+            letter-spacing: 1px;
+        }
+        .clock-date {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #4b5563;
+            margin-top: 4px;
+        }
+        .clock-day {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #10b981;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        @media (max-width: 991px) {
+            .top-header-wrapper {
+                flex-direction: column;
+            }
+            .clock-widget {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
@@ -73,25 +125,35 @@
 
     <div class="container py-4">
         <div class="row justify-content-center">
-            <div class="col-md-9">
+            <div class="col-md-11">
                 
-                <!-- Main Header with Tab Navigation -->
-                <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2 card p-3">
-                    <h4 class="m-0 text-primary fw-bold">Tool Dashboard</h4>
-                    <ul class="nav nav-pills" id="pills-tab" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="pills-email-tab" data-bs-toggle="pill" data-bs-target="#pills-email" type="button" role="tab">Get Verification Code</button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="pills-password-tab" data-bs-toggle="pill" data-bs-target="#pills-password" type="button" role="tab">Password Generator</button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="pills-name-tab" data-bs-toggle="pill" data-bs-target="#pills-name" type="button" role="tab">Name Generator</button>
-                        </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="pills-2fa-tab" data-bs-toggle="pill" data-bs-target="#pills-2fa" type="button" role="tab">2FA Generator</button>
-                        </li>
-                    </ul>
+                <!-- Main Header Top Bar with Clock -->
+                <div class="top-header-wrapper">
+                    <!-- Nav Header -->
+                    <div class="card p-3 top-header-main d-flex flex-row justify-content-between align-items-center flex-wrap gap-2">
+                        <h4 class="m-0 text-primary fw-bold">Tool Dashboard</h4>
+                        <ul class="nav nav-pills" id="pills-tab" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="pills-email-tab" data-bs-toggle="pill" data-bs-target="#pills-email" type="button" role="tab">Get Verification Code</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="pills-password-tab" data-bs-toggle="pill" data-bs-target="#pills-password" type="button" role="tab">Password Generator</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="pills-name-tab" data-bs-toggle="pill" data-bs-target="#pills-name" type="button" role="tab">Name Generator</button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="pills-2fa-tab" data-bs-toggle="pill" data-bs-target="#pills-2fa" type="button" role="tab">2FA Generator</button>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Live Clock Widget -->
+                    <div class="clock-widget">
+                        <div id="liveClockTime" class="clock-time">00:00:00 AM</div>
+                        <div id="liveClockDay" class="clock-day">SUNDAY</div>
+                        <div id="liveClockDate" class="clock-date">01 Jan, 2026</div>
+                    </div>
                 </div>
 
                 <div class="tab-content" id="pills-tabContent">
@@ -356,6 +418,35 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Live Clock Script
+        function updateLiveClock() {
+            const now = new Date();
+
+            let hours = now.getHours();
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            
+            hours = hours % 12;
+            hours = hours ? hours : 12; 
+            const formattedHours = String(hours).padStart(2, '0');
+
+            const timeString = `${formattedHours}:${minutes}:${seconds} ${ampm}`;
+
+            const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const dayName = days[now.getDay()];
+
+            const options = { day: 'numeric', month: 'short', year: 'numeric' };
+            const dateString = now.toLocaleDateString('en-GB', options);
+
+            document.getElementById('liveClockTime').innerText = timeString;
+            document.getElementById('liveClockDay').innerText = dayName;
+            document.getElementById('liveClockDate').innerText = dateString;
+        }
+
+        setInterval(updateLiveClock, 1000);
+        updateLiveClock();
+
         // Web Audio API Notification Sound Setup
         let audioCtx = null;
         function playNotificationSound() {
@@ -727,7 +818,7 @@
             }
         }
 
-        // --- NEW IMPROVED 2FA GENERATOR LOGIC ---
+        // --- 2FA GENERATOR LOGIC ---
         let twoFaInterval = null;
 
         function start2FA() {
@@ -749,7 +840,6 @@
                 if (rawInput.startsWith('otpauth://')) {
                     totpObj = OTPAuth.URI.parse(rawInput);
                 } else {
-                    // Clean spaces and make uppercase
                     const cleanSecret = rawInput.replace(/\s+/g, '').toUpperCase();
                     totpObj = new OTPAuth.TOTP({
                         secret: OTPAuth.Secret.fromBase32(cleanSecret),
