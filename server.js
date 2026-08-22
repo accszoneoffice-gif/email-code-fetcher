@@ -130,7 +130,7 @@ function fetchLatestEmail(imap, res) {
     imap.connect();
 }
 
-// --- 2. SOCIAL MEDIA CHECKER API ---
+// --- 2. ACCURATE SOCIAL MEDIA CHECKER API ---
 app.post('/api/check-social', async (req, res) => {
     const { urls } = req.body;
     if (!urls || !Array.isArray(urls)) {
@@ -142,25 +142,42 @@ app.post('/api/check-social', async (req, res) => {
     for (let url of urls) {
         try {
             let checkUrl = url.trim();
+            
+            // Convert Facebook links to mobile web link for accurate checking
             if (checkUrl.includes('facebook.com') || checkUrl.includes('fb.com')) {
-                checkUrl = checkUrl.replace('www.facebook.com', 'mbasic.facebook.com').replace('web.facebook.com', 'mbasic.facebook.com');
+                checkUrl = checkUrl.replace('www.facebook.com', 'm.facebook.com')
+                                   .replace('web.facebook.com', 'm.facebook.com')
+                                   .replace('mbasic.facebook.com', 'm.facebook.com');
             }
 
             const response = await axios.get(checkUrl, {
                 headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36',
+                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
                     'Accept-Language': 'en-US,en;q=0.9',
                     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
                 },
-                timeout: 7000,
+                timeout: 8000,
                 maxRedirects: 5,
                 validateStatus: false
             });
 
-            const html = response.data.toString().toLowerCase();
+            const html = response.data.toString();
 
             if (checkUrl.includes('facebook.com')) {
-                if (html.includes('content not found') || html.includes('page not found') || html.includes('isn\'t available') || html.includes('account disabled')) {
+                // Check page title and body keywords
+                const titleMatch = html.match(/<title>(.*?)<\/title>/i);
+                const pageTitle = titleMatch ? titleMatch[1].toLowerCase() : '';
+                const lowerHtml = html.toLowerCase();
+
+                const isInvalid = pageTitle.includes('page not found') || 
+                                  pageTitle.includes('content not found') || 
+                                  pageTitle.includes('log in') || 
+                                  pageTitle.includes('log into facebook') ||
+                                  lowerHtml.includes('this content isn\'t available') ||
+                                  lowerHtml.includes('account disabled') ||
+                                  lowerHtml.includes('profile_id_not_found');
+
+                if (isInvalid) {
                     results.push({ url, status: 'DISABLED' });
                 } else {
                     results.push({ url, status: 'LIVE' });
