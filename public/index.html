@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Multi-Tool Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsOTP/1.0.0/jsOTP.min.js"></script>
+    <!-- Updated Reliable OTP Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/otpauth/9.1.4/otpauth.umd.min.js"></script>
     <style>
         body { background-color: #f4f7fe; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         .card { border-radius: 15px; border: none; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
@@ -54,9 +55,9 @@
         .form-check-label { font-size: 14px; font-weight: 500; color: #374151; }
 
         .twofa-code-box {
-            font-size: 3rem;
+            font-size: 3.5rem;
             font-weight: 800;
-            letter-spacing: 6px;
+            letter-spacing: 8px;
             color: #2563eb;
         }
         .timer-progress {
@@ -324,7 +325,7 @@
                             
                             <div class="mb-3">
                                 <label class="form-label fw-bold text-muted">ENTER 2FA SECRET KEY OR OTPAUTH LINK</label>
-                                <input type="text" id="twoFaInput" class="form-control form-control-lg" placeholder="e.g. JBSWY3DPEHPK3PXP or otpauth://totp/..." oninput="start2FA()">
+                                <input type="text" id="twoFaInput" class="form-control form-control-lg" placeholder="e.g. W6HP LGY2 NPBN... or otpauth://totp/..." oninput="start2FA()">
                             </div>
 
                             <div id="twoFaResultBox" class="p-4 bg-light rounded text-center border d-none">
@@ -726,73 +727,64 @@
             }
         }
 
-        // --- 2FA GENERATOR LOGIC ---
+        // --- NEW IMPROVED 2FA GENERATOR LOGIC ---
         let twoFaInterval = null;
 
-        function extract2FASecret(input) {
-            let cleanInput = input.trim();
-            if (cleanInput.startsWith('otpauth://')) {
-                try {
-                    const url = new URL(cleanInput);
-                    const secret = url.searchParams.get('secret');
-                    return secret ? secret.toUpperCase() : null;
-                } catch (e) {
-                    return null;
-                }
-            }
-            return cleanInput.replace(/\s+/g, '').toUpperCase();
-        }
-
         function start2FA() {
-            const rawInput = document.getElementById('twoFaInput').value;
+            const rawInput = document.getElementById('twoFaInput').value.trim();
             const resultBox = document.getElementById('twoFaResultBox');
             const errorBox = document.getElementById('twoFaErrorBox');
             
             if (twoFaInterval) clearInterval(twoFaInterval);
 
-            if (!rawInput.trim()) {
+            if (!rawInput) {
                 resultBox.classList.add('d-none');
                 errorBox.classList.add('d-none');
                 return;
             }
 
-            const secret = extract2FASecret(rawInput);
-
             try {
-                const totp = jsOTP.totp();
-                const code = totp.getOtp(secret);
+                let totpObj = null;
 
-                if (code && !isNaN(code)) {
+                if (rawInput.startsWith('otpauth://')) {
+                    totpObj = OTPAuth.URI.parse(rawInput);
+                } else {
+                    // Clean spaces and make uppercase
+                    const cleanSecret = rawInput.replace(/\s+/g, '').toUpperCase();
+                    totpObj = new OTPAuth.TOTP({
+                        secret: OTPAuth.Secret.fromBase32(cleanSecret),
+                        period: 30,
+                        digits: 6
+                    });
+                }
+
+                if (totpObj) {
                     errorBox.classList.add('d-none');
                     resultBox.classList.remove('d-none');
 
-                    update2FACode(totp, secret);
+                    const updateUI = () => {
+                        try {
+                            const token = totpObj.generate();
+                            document.getElementById('twoFaCode').innerText = token;
 
-                    twoFaInterval = setInterval(() => {
-                        update2FACode(totp, secret);
-                    }, 1000);
-                } else {
-                    throw new Error("Invalid Code");
+                            const epoch = Math.floor(Date.now() / 1000);
+                            const remainingSecs = 30 - (epoch % 30);
+                            const percentage = (remainingSecs / 30) * 100;
+
+                            document.getElementById('twoFaTimerBar').style.width = percentage + '%';
+                            document.getElementById('twoFaTimerText').innerText = `Next update in ${remainingSecs}s`;
+                        } catch (e) {
+                            resultBox.classList.add('d-none');
+                            errorBox.classList.remove('d-none');
+                        }
+                    };
+
+                    updateUI();
+                    twoFaInterval = setInterval(updateUI, 1000);
                 }
             } catch (e) {
                 resultBox.classList.add('d-none');
                 errorBox.classList.remove('d-none');
-            }
-        }
-
-        function update2FACode(totp, secret) {
-            try {
-                const code = totp.getOtp(secret);
-                document.getElementById('twoFaCode').innerText = code;
-
-                const epoch = Math.floor(Date.now() / 1000);
-                const remainingSecs = 30 - (epoch % 30);
-                const percentage = (remainingSecs / 30) * 100;
-
-                document.getElementById('twoFaTimerBar').style.width = percentage + '%';
-                document.getElementById('twoFaTimerText').innerText = `Next update in ${remainingSecs}s`;
-            } catch (e) {
-                if (twoFaInterval) clearInterval(twoFaInterval);
             }
         }
     </script>
