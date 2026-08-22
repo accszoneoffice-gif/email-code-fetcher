@@ -8,8 +8,38 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/otpauth/9.1.4/otpauth.umd.min.js"></script>
     <style>
-        body { background-color: #f4f7fe; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-        .card { border-radius: 15px; border: none; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        body { 
+            background-color: #f4f7fe; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* Animated Interactive Dragon canvas */
+        #dragonCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            pointer-events: none;
+            z-index: 0;
+            opacity: 0.15;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+        }
+
+        .card { 
+            border-radius: 15px; 
+            border: none; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05); 
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(5px);
+        }
+
         .btn-primary { background-color: #2563eb; border: none; padding: 10px 20px; font-weight: 600; border-radius: 8px; }
         .btn-primary:hover { background-color: #1d4ed8; }
         .nav-pills .nav-link { font-weight: 600; border-radius: 8px; color: #4b5563; padding: 8px 16px; margin-left: 5px; }
@@ -86,7 +116,7 @@
         }
         .clock-widget {
             min-width: 220px;
-            background: #ffffff;
+            background: rgba(255, 255, 255, 0.95);
             border-radius: 15px;
             padding: 12px 20px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.05);
@@ -128,6 +158,9 @@
     </style>
 </head>
 <body>
+
+    <!-- Background Dragon Canvas -->
+    <canvas id="dragonCanvas"></canvas>
 
     <div id="custom-toast">✓ Copied to clipboard!</div>
 
@@ -266,7 +299,6 @@
                                         <option value="Telegram">Telegram</option>
                                         <option value="Facebook">Facebook</option>
                                         <option value="Google">Google / Gmail</option>
-                                        <option value="IMO">IMO</option>
                                         <option value="Instagram">Instagram</option>
                                         <option value="TikTok">TikTok</option>
                                         <option value="Twitter">Twitter / X</option>
@@ -280,7 +312,7 @@
 
                                 <div class="col-12 d-flex gap-2">
                                     <button class="btn btn-primary w-50" onclick="getRandomPhoneNumber()">Get Phone Number</button>
-                                    <button class="btn btn-success w-50" onclick="getSmsCode()">Check SMS Code</button>
+                                    <button class="btn btn-secondary w-50" disabled style="cursor: not-allowed; opacity: 0.6;">Check SMS Code (Disabled)</button>
                                 </div>
 
                                 <!-- Display Received Number -->
@@ -499,6 +531,143 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // --- DRAGON MOUSE FOLLOW ANIMATION ---
+        const canvas = document.getElementById('dragonCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        let mouse = { x: canvas.width / 2, y: canvas.height / 2 };
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = e.clientX;
+            mouse.y = e.clientY;
+        });
+
+        // Dragon Segmented Spine logic
+        const numSegments = 22;
+        let dragonHead = { x: canvas.width / 2, y: canvas.height / 2, angle: 0 };
+        let dragonBody = [];
+
+        for (let i = 0; i < numSegments; i++) {
+            dragonBody.push({ x: canvas.width / 2, y: canvas.height / 2, size: Math.max(8, 26 - i) });
+        }
+
+        let wingAngle = 0;
+
+        function animateDragon() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Head tracking mouse smooth movement
+            const dx = mouse.x - dragonHead.x;
+            const dy = mouse.y - dragonHead.y;
+            const dist = Math.hypot(dx, dy);
+
+            dragonHead.angle = Math.atan2(dy, dx);
+
+            if (dist > 5) {
+                dragonHead.x += Math.cos(dragonHead.angle) * Math.min(dist * 0.08, 8);
+                dragonHead.y += Math.sin(dragonHead.angle) * Math.min(dist * 0.08, 8);
+            }
+
+            // Body segments follow head
+            let targetX = dragonHead.x;
+            let targetY = dragonHead.y;
+
+            for (let i = 0; i < numSegments; i++) {
+                const seg = dragonBody[i];
+                const segDx = targetX - seg.x;
+                const segDy = targetY - seg.y;
+                const angle = Math.atan2(segDy, segDx);
+
+                const spacing = i === 0 ? 20 : 15;
+                seg.x = targetX - Math.cos(angle) * spacing;
+                seg.y = targetY - Math.sin(angle) * spacing;
+
+                targetX = seg.x;
+                targetY = seg.y;
+            }
+
+            // Draw Wings on 3rd Segment
+            wingAngle += 0.1;
+            const wingWidth = 70 + Math.sin(wingAngle) * 20;
+            const wingSeg = dragonBody[2];
+
+            ctx.save();
+            ctx.translate(wingSeg.x, wingSeg.y);
+            ctx.rotate(dragonHead.angle);
+            
+            // Wings fill
+            ctx.fillStyle = '#dc2626';
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.quadraticCurveTo(-10, -wingWidth, -50, -wingWidth + 10);
+            ctx.quadraticCurveTo(-20, -10, 0, 0);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.quadraticCurveTo(-10, wingWidth, -50, wingWidth - 10);
+            ctx.quadraticCurveTo(-20, 10, 0, 0);
+            ctx.fill();
+            ctx.restore();
+
+            // Draw Body Spine
+            for (let i = numSegments - 1; i >= 0; i--) {
+                const seg = dragonBody[i];
+                ctx.fillStyle = i % 2 === 0 ? '#dc2626' : '#2563eb';
+                ctx.beginPath();
+                ctx.arc(seg.x, seg.y, seg.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Draw Head & Glowing Eyes
+            ctx.save();
+            ctx.translate(dragonHead.x, dragonHead.y);
+            ctx.rotate(dragonHead.angle);
+
+            // Head shape
+            ctx.fillStyle = '#1e1b4b';
+            ctx.beginPath();
+            ctx.arc(0, 0, 24, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Dragon Snout
+            ctx.beginPath();
+            ctx.moveTo(10, -12);
+            ctx.lineTo(32, 0);
+            ctx.lineTo(10, 12);
+            ctx.closePath();
+            ctx.fill();
+
+            // Red Eyes looking at mouse direction
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(12, -8, 5, 0, Math.PI * 2);
+            ctx.arc(12, 8, 5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Horns
+            ctx.strokeStyle = '#dc2626';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(-5, -15);
+            ctx.lineTo(-25, -28);
+            ctx.moveTo(-5, 15);
+            ctx.lineTo(-25, 28);
+            ctx.stroke();
+
+            ctx.restore();
+
+            requestAnimationFrame(animateDragon);
+        }
+        animateDragon();
+
+        // --- LIVE CLOCK ---
         function updateLiveClock() {
             const now = new Date();
             let hours = now.getHours();
@@ -575,28 +744,59 @@
             showToast("Cleared account details!");
         }
 
-        // --- RANDOM SMS NUMBER GENERATOR ---
+        // --- ACCURATE COUNTRY-SPECIFIC NUMBER GENERATOR ---
         function getRandomPhoneNumber() {
-            const select = document.getElementById('smsCountrySelect');
-            const code = select.options[select.selectedIndex].getAttribute('data-code');
-            
-            let randomDigits = '';
-            for (let i = 0; i < 9; i++) {
-                randomDigits += Math.floor(Math.random() * 10);
+            const country = document.getElementById('smsCountrySelect').value;
+            let formattedNumber = "";
+
+            function genDigits(count) {
+                let str = "";
+                for (let i = 0; i < count; i++) {
+                    str += Math.floor(Math.random() * 10);
+                }
+                return str;
             }
 
-            const formattedNumber = `${code} ${randomDigits.substring(0, 3)}-${randomDigits.substring(3, 6)}-${randomDigits.substring(6)}`;
+            switch(country) {
+                case "US":
+                case "CA":
+                    const usArea = ["202", "305", "415", "646", "702", "312", "503"][Math.floor(Math.random() * 7)];
+                    formattedNumber = `+1 (${usArea}) ${genDigits(3)}-${genDigits(4)}`;
+                    break;
+                case "UK":
+                    formattedNumber = `+44 7${genDigits(3)} ${genDigits(6)}`;
+                    break;
+                case "BD":
+                    const bdOperators = ["17", "18", "19", "13", "14", "16", "15"];
+                    const bdOp = bdOperators[Math.floor(Math.random() * bdOperators.length)];
+                    formattedNumber = `+880 ${bdOp}${genDigits(4)}-${genDigits(4)}`;
+                    break;
+                case "IN":
+                    const inPrefix = ["9", "8", "7", "6"][Math.floor(Math.random() * 4)];
+                    formattedNumber = `+91 ${inPrefix}${genDigits(4)} ${genDigits(5)}`;
+                    break;
+                case "DE":
+                    formattedNumber = `+49 151 ${genDigits(8)}`;
+                    break;
+                case "FR":
+                    formattedNumber = `+33 6 ${genDigits(2)} ${genDigits(2)} ${genDigits(2)} ${genDigits(2)}`;
+                    break;
+                case "NL":
+                    formattedNumber = `+31 6 ${genDigits(8)}`;
+                    break;
+                case "RU":
+                    formattedNumber = `+7 9${genDigits(2)} ${genDigits(3)}-${genDigits(2)}-${genDigits(2)}`;
+                    break;
+                case "BR":
+                    formattedNumber = `+55 11 9${genDigits(4)}-${genDigits(4)}`;
+                    break;
+                default:
+                    formattedNumber = `+1 (555) ${genDigits(3)}-${genDigits(4)}`;
+            }
+
             document.getElementById('activeNumberValue').innerText = formattedNumber;
             document.getElementById('smsNumberBox').classList.remove('d-none');
             showToast("Generated Phone Number!");
-        }
-
-        function getSmsCode() {
-            playNotificationSound();
-            const randomSms = Math.floor(100000 + Math.random() * 900000);
-            document.getElementById('smsCodeValue').innerText = randomSms;
-            document.getElementById('smsResultBox').classList.remove('d-none');
-            showToast("SMS Code received!");
         }
 
         const countryList = [
