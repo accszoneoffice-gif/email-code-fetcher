@@ -22,19 +22,25 @@ app.post('/api/get-code', async (req, res) => {
     try {
         if (provider === 'outlook') {
             const parts = accountData.split('|').map(p => p.trim());
-            if (parts.length < 4) {
+            
+            // Handle both formats (with or without password)
+            let email, refreshToken, clientId;
+            if (parts.length >= 4) {
+                [email, , refreshToken, clientId] = parts;
+            } else if (parts.length === 3) {
+                [email, refreshToken, clientId] = parts;
+            } else {
                 return res.status(400).json({ success: false, error: 'Format error: email|password|refresh_token|client_id required.' });
             }
 
-            const [email, password, refreshToken, clientId] = parts;
-
+            // Fetch Access Token from Microsoft OAuth
             const tokenResponse = await axios.post(
                 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
                 new URLSearchParams({
                     client_id: clientId,
                     grant_type: 'refresh_token',
                     refresh_token: refreshToken,
-                    scope: 'https://outlook.office.com/IMAP.AccessAsUser.All'
+                    scope: 'https://graph.microsoft.com/Mail.Read'
                 }),
                 { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
             );
@@ -44,18 +50,36 @@ app.post('/api/get-code', async (req, res) => {
                 return res.json({ success: false, error: 'Failed to get Microsoft access token.' });
             }
 
-            const authString = `user=${email}\x01auth=Bearer ${accessToken}\x01\x01`;
-            const xoauth2Token = Buffer.from(authString).toString('base64');
-
-            const imap = new Imap({
-                xoauth2: xoauth2Token,
-                host: 'outlook.office365.com',
-                port: 993,
-                tls: true,
-                tlsOptions: { rejectUnauthorized: false }
+            // Fetch Latest Email using Microsoft Graph API (Direct API over HTTPS)
+            const graphResponse = await axios.get('https://graph.microsoft.com/v1.0/me/messages?$top=1', {
+                headers: { Authorization: `Bearer ${accessToken}` }
             });
 
-            fetchLatestEmail(imap, res);
+            const messages = graphResponse.data.value;
+            if (!messages || messages.length === 0) {
+                return res.json({ success: false, error: 'Inbox is empty or no messages found.' });
+            }
+
+            const latestMail = messages[0];
+            const subject = latestMail.subject || '';
+            const html = latestMail.body ? latestMail.body.content : '';
+            const text = latestMail.bodyPreview || '';
+
+            // Extract Verification Code
+            const codeMatch = text.match(/\b\d{4,8}\b/) || html.match(/\b\d{4,8}\b/);
+            const code = codeMatch ? codeMatch[0] : null;
+
+            // Extract Direct Verification Link
+            const linkMatch = html.match(/href=["'](https?:\/\/[^"']+)["']/i) || text.match(/(https?:\/\/[^\s]+)/i);
+            const link = linkMatch ? linkMatch[1] : null;
+
+            return res.json({
+                success: true,
+                subject: subject,
+                code: code,
+                link: link,
+                fullHtml: html || text
+            });
 
         } else if (provider === 'gmail' || provider === 'att') {
             const parts = accountData.split('|').map(p => p.trim());
@@ -80,7 +104,8 @@ app.post('/api/get-code', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Invalid provider selected.' });
         }
     } catch (err) {
-        res.json({ success: false, error: err.message || 'Server error occurred.' });
+        const errMsg = err.response?.data?.error_description || err.message || 'Server error occurred.';
+        res.json({ success: false, error: errMsg });
     }
 });
 
