@@ -23,8 +23,8 @@ app.post('/api/get-code', async (req, res) => {
         if (provider === 'outlook') {
             const parts = accountData.split('|').map(p => p.trim());
             
-            // Handle both formats (with or without password)
             let email, refreshToken, clientId;
+            // email|password|refresh_token|client_id
             if (parts.length >= 4) {
                 [email, , refreshToken, clientId] = parts;
             } else if (parts.length === 3) {
@@ -33,29 +33,59 @@ app.post('/api/get-code', async (req, res) => {
                 return res.status(400).json({ success: false, error: 'Format error: email|password|refresh_token|client_id required.' });
             }
 
-            // Fetch Access Token from Microsoft OAuth
-            const tokenResponse = await axios.post(
-                'https://login.microsoftonline.com/common/oauth2/v2.0/token',
-                new URLSearchParams({
-                    client_id: clientId,
-                    grant_type: 'refresh_token',
-                    refresh_token: refreshToken,
-                    scope: 'https://graph.microsoft.com/Mail.Read'
-                }),
-                { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-            );
+            // Fallback Client ID (Default Live/Outlook Client ID)
+            const finalClientId = clientId || '0000000048170277';
 
-            const accessToken = tokenResponse.data.access_token;
-            if (!accessToken) {
-                return res.json({ success: false, error: 'Failed to get Microsoft access token.' });
+            let accessToken = null;
+
+            // Attempt 1: Fetch Token via Microsoft Live OAuth Endpoint (Recommended for Personal Outlook/Hotmail)
+            try {
+                const liveTokenRes = await axios.post(
+                    'https://login.live.com/oauth20_token.srf',
+                    new URLSearchParams({
+                        client_id: finalClientId,
+                        grant_type: 'refresh_token',
+                        refresh_token: refreshToken,
+                        scope: 'service::outlook.com::MBI_SSL'
+                    }),
+                    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+                );
+                accessToken = liveTokenRes.data.access_token;
+            } catch (err1) {
+                // Attempt 2: Fallback to Microsoft Online OAuth Endpoint if Live endpoint fails
+                try {
+                    const onlineTokenRes = await axios.post(
+                        'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+                        new URLSearchParams({
+                            client_id: finalClientId,
+                            grant_type: 'refresh_token',
+                            refresh_token: refreshToken,
+                            scope: 'https://outlook.office.com/IMAP.AccessAsUser.All offline_access'
+                        }),
+                        { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+                    );
+                    accessToken = onlineTokenRes.data.access_token;
+                } catch (err2) {
+                    const errMsg = err2.response?.data?.error_description || err1.response?.data?.error_description || 'Failed to authenticate refresh token with Microsoft.';
+                    return res.json({ success: false, error: errMsg });
+                }
             }
 
-            // Fetch Latest Email using Microsoft Graph API (Direct API over HTTPS)
+            if (!accessToken) {
+                return res.json({ success: false, error: 'Failed to obtain access token.' });
+            }
+
+            // Fetch Email via Microsoft Graph API
             const graphResponse = await axios.get('https://graph.microsoft.com/v1.0/me/messages?$top=1', {
                 headers: { Authorization: `Bearer ${accessToken}` }
+            }).catch(async () => {
+                // Fallback to Outlook REST API if Graph API scopes fail
+                return await axios.get('https://outlook.office.com/api/v2.0/me/messages?$top=1', {
+                    headers: { Authorization: `Bearer ${accessToken}` }
+                });
             });
 
-            const messages = graphResponse.data.value;
+            const messages = graphResponse.data.value || graphResponse.data.value;
             if (!messages || messages.length === 0) {
                 return res.json({ success: false, error: 'Inbox is empty or no messages found.' });
             }
@@ -65,7 +95,7 @@ app.post('/api/get-code', async (req, res) => {
             const html = latestMail.body ? latestMail.body.content : '';
             const text = latestMail.bodyPreview || '';
 
-            // Extract Verification Code
+            // Extract Verification Code (4 to 8 digits)
             const codeMatch = text.match(/\b\d{4,8}\b/) || html.match(/\b\d{4,8}\b/);
             const code = codeMatch ? codeMatch[0] : null;
 

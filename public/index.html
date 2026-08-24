@@ -548,7 +548,6 @@
             mouse.y = e.clientY;
         });
 
-        // Dragon Segmented Spine logic
         const numSegments = 22;
         let dragonHead = { x: canvas.width / 2, y: canvas.height / 2, angle: 0 };
         let dragonBody = [];
@@ -562,7 +561,6 @@
         function animateDragon() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Head tracking mouse smooth movement
             const dx = mouse.x - dragonHead.x;
             const dy = mouse.y - dragonHead.y;
             const dist = Math.hypot(dx, dy);
@@ -574,7 +572,6 @@
                 dragonHead.y += Math.sin(dragonHead.angle) * Math.min(dist * 0.08, 8);
             }
 
-            // Body segments follow head
             let targetX = dragonHead.x;
             let targetY = dragonHead.y;
 
@@ -592,7 +589,6 @@
                 targetY = seg.y;
             }
 
-            // Draw Wings on 3rd Segment
             wingAngle += 0.1;
             const wingWidth = 70 + Math.sin(wingAngle) * 20;
             const wingSeg = dragonBody[2];
@@ -601,7 +597,6 @@
             ctx.translate(wingSeg.x, wingSeg.y);
             ctx.rotate(dragonHead.angle);
             
-            // Wings fill
             ctx.fillStyle = '#dc2626';
             ctx.beginPath();
             ctx.moveTo(0, 0);
@@ -616,7 +611,6 @@
             ctx.fill();
             ctx.restore();
 
-            // Draw Body Spine
             for (let i = numSegments - 1; i >= 0; i--) {
                 const seg = dragonBody[i];
                 ctx.fillStyle = i % 2 === 0 ? '#dc2626' : '#2563eb';
@@ -625,18 +619,15 @@
                 ctx.fill();
             }
 
-            // Draw Head & Glowing Eyes
             ctx.save();
             ctx.translate(dragonHead.x, dragonHead.y);
             ctx.rotate(dragonHead.angle);
 
-            // Head shape
             ctx.fillStyle = '#1e1b4b';
             ctx.beginPath();
             ctx.arc(0, 0, 24, 0, Math.PI * 2);
             ctx.fill();
 
-            // Dragon Snout
             ctx.beginPath();
             ctx.moveTo(10, -12);
             ctx.lineTo(32, 0);
@@ -644,14 +635,12 @@
             ctx.closePath();
             ctx.fill();
 
-            // Red Eyes looking at mouse direction
             ctx.fillStyle = '#ef4444';
             ctx.beginPath();
             ctx.arc(12, -8, 5, 0, Math.PI * 2);
             ctx.arc(12, 8, 5, 0, Math.PI * 2);
             ctx.fill();
 
-            // Horns
             ctx.strokeStyle = '#dc2626';
             ctx.lineWidth = 4;
             ctx.beginPath();
