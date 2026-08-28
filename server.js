@@ -11,6 +11,28 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
+// --- HELPER FUNCTION TO EXTRACT CODE & LINK ---
+function parseVerificationDetails(subject = '', html = '', text = '') {
+    let extractedCode = null;
+    let extractedLink = null;
+
+    // 1. Priority check: Extract 6-digit code directly from email Subject
+    const subjectCodeMatch = subject.match(/\b\d{6}\b/);
+    if (subjectCodeMatch) {
+        extractedCode = subjectCodeMatch[0];
+    } else {
+        // Fallback: Extract 4-8 digit code from body (Text/HTML)
+        const bodyCodeMatch = text.match(/\b\d{4,8}\b/) || html.match(/\b\d{4,8}\b/);
+        extractedCode = bodyCodeMatch ? bodyCodeMatch[0] : null;
+    }
+
+    // 2. Extract Direct Verification Link
+    const linkMatch = html.match(/href=["'](https?:\/\/[^"']+)["']/i) || text.match(/(https?:\/\/[^\s]+)/i);
+    extractedLink = linkMatch ? linkMatch[1] : null;
+
+    return { code: extractedCode, link: extractedLink };
+}
+
 // --- EMAIL FETCHER API ---
 app.post('/api/get-code', async (req, res) => {
     const { provider, accountData } = req.body;
@@ -23,7 +45,6 @@ app.post('/api/get-code', async (req, res) => {
         if (provider === 'outlook') {
             const parts = accountData.split('|').map(p => p.trim());
             
-            // Handle both formats (with or without password)
             let email, refreshToken, clientId;
             if (parts.length >= 4) {
                 [email, , refreshToken, clientId] = parts;
@@ -33,7 +54,7 @@ app.post('/api/get-code', async (req, res) => {
                 return res.status(400).json({ success: false, error: 'Format error: email|password|refresh_token|client_id required.' });
             }
 
-            // Fetch Access Token from Microsoft OAuth
+            // Microsoft OAuth Access Token Request
             const tokenResponse = await axios.post(
                 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
                 new URLSearchParams({
@@ -50,7 +71,7 @@ app.post('/api/get-code', async (req, res) => {
                 return res.json({ success: false, error: 'Failed to get Microsoft access token.' });
             }
 
-            // Fetch Latest Email using Microsoft Graph API (Direct API over HTTPS)
+            // Fetch Latest Email using Microsoft Graph API
             const graphResponse = await axios.get('https://graph.microsoft.com/v1.0/me/messages?$top=1', {
                 headers: { Authorization: `Bearer ${accessToken}` }
             });
@@ -65,13 +86,8 @@ app.post('/api/get-code', async (req, res) => {
             const html = latestMail.body ? latestMail.body.content : '';
             const text = latestMail.bodyPreview || '';
 
-            // Extract Verification Code
-            const codeMatch = text.match(/\b\d{4,8}\b/) || html.match(/\b\d{4,8}\b/);
-            const code = codeMatch ? codeMatch[0] : null;
-
-            // Extract Direct Verification Link
-            const linkMatch = html.match(/href=["'](https?:\/\/[^"']+)["']/i) || text.match(/(https?:\/\/[^\s]+)/i);
-            const link = linkMatch ? linkMatch[1] : null;
+            // Extract Code and Link using priority logic
+            const { code, link } = parseVerificationDetails(subject, html, text);
 
             return res.json({
                 success: true,
@@ -129,11 +145,7 @@ function fetchLatestEmail(imap, res) {
                         const text = parsed.text || '';
                         const html = parsed.html || parsed.textAsHtml || '';
 
-                        const codeMatch = text.match(/\b\d{4,8}\b/) || html.match(/\b\d{4,8}\b/);
-                        const code = codeMatch ? codeMatch[0] : null;
-
-                        const linkMatch = html.match(/href=["'](https?:\/\/[^"']+)["']/i) || text.match(/(https?:\/\/[^\s]+)/i);
-                        const link = linkMatch ? linkMatch[1] : null;
+                        const { code, link } = parseVerificationDetails(subject, html, text);
 
                         res.json({
                             success: true,

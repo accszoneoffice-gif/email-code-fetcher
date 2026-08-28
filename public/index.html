@@ -15,7 +15,6 @@
             position: relative;
         }
 
-        /* Animated Interactive Dragon canvas */
         #dragonCanvas {
             position: fixed;
             top: 0;
@@ -159,7 +158,6 @@
 </head>
 <body>
 
-    <!-- Background Dragon Canvas -->
     <canvas id="dragonCanvas"></canvas>
 
     <div id="custom-toast">✓ Copied to clipboard!</div>
@@ -168,11 +166,8 @@
         <div class="row justify-content-center">
             <div class="col-md-11">
                 
-                <!-- Main Header Top Bar with Clock -->
                 <div class="top-header-wrapper">
-                    <!-- Nav Header -->
                     <div class="card p-3 top-header-main d-flex flex-row justify-content-between align-items-center flex-wrap gap-2">
-                        <!-- Brand / Logo Area -->
                         <div class="brand-logo">
                             <span>🐉 DRAGON SMS</span>
                         </div>
@@ -196,11 +191,10 @@
                         </ul>
                     </div>
 
-                    <!-- Live Clock Widget -->
                     <div class="clock-widget">
                         <div id="liveClockTime" class="clock-time">00:00:00 AM</div>
                         <div id="liveClockDay" class="clock-day">SUNDAY</div>
-                        <div id="liveClockDate" class="clock-date">23 Aug, 2026</div>
+                        <div id="liveClockDate" class="clock-date">28 Aug, 2026</div>
                     </div>
                 </div>
 
@@ -270,11 +264,10 @@
                         </div>
                     </div>
 
-                    <!-- TAB 2: SMS / NUMBER RECEIVER -->
+                    <!-- TAB 2: SMS -->
                     <div class="tab-pane fade" id="pills-sms" role="tabpanel">
                         <div class="card p-4">
                             <h5 class="mb-3 text-primary fw-bold">Virtual Number & SMS Receiver</h5>
-                            
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold">Select Country:</label>
@@ -291,7 +284,6 @@
                                         <option value="BR" data-code="+55">Brazil (+55)</option>
                                     </select>
                                 </div>
-
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold">Select Service:</label>
                                     <select id="smsServiceSelect" class="form-select">
@@ -309,13 +301,10 @@
                                         <option value="Other">Other Service</option>
                                     </select>
                                 </div>
-
                                 <div class="col-12 d-flex gap-2">
                                     <button class="btn btn-primary w-50" onclick="getRandomPhoneNumber()">Get Phone Number</button>
                                     <button class="btn btn-secondary w-50" disabled style="cursor: not-allowed; opacity: 0.6;">Check SMS Code (Disabled)</button>
                                 </div>
-
-                                <!-- Display Received Number -->
                                 <div id="smsNumberBox" class="col-12 d-none">
                                     <div class="p-3 bg-light rounded border d-flex justify-content-between align-items-center">
                                         <div>
@@ -325,8 +314,6 @@
                                         <button class="btn btn-outline-primary btn-sm" onclick="copyText('activeNumberValue', 'Number copied!')">Copy Number</button>
                                     </div>
                                 </div>
-
-                                <!-- Display SMS Code -->
                                 <div id="smsResultBox" class="col-12 d-none">
                                     <div class="p-3 bg-success-subtle text-success border border-success rounded d-flex justify-content-between align-items-center">
                                         <div>
@@ -344,18 +331,15 @@
                     <div class="tab-pane fade" id="pills-password" role="tabpanel">
                         <div class="card p-4">
                             <h5 class="mb-3 text-primary fw-bold">Online Password Generator</h5>
-                            
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold">Password Length:</label>
                                     <input type="number" id="passLength" class="form-control" value="12" min="4" max="100">
                                 </div>
-
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold"># of Passwords to Generate:</label>
                                     <input type="number" id="passCount" class="form-control" value="1" min="1" max="500">
                                 </div>
-
                                 <div class="col-12">
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="incLower" checked>
@@ -374,17 +358,14 @@
                                         <label class="form-check-label" for="incSymbols">Symbols (e.g. !@#$%^&*)</label>
                                     </div>
                                 </div>
-
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold">Characters to Include:</label>
                                     <input type="text" id="customInclude" class="form-control" placeholder="e.g. +=">
                                 </div>
-
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold">Characters to Exclude:</label>
                                     <input type="text" id="customExclude" class="form-control" placeholder="e.g. +[]">
                                 </div>
-
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold">Begins With:</label>
                                     <div>
@@ -402,7 +383,6 @@
                                         </div>
                                     </div>
                                 </div>
-
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold">Ends With:</label>
                                     <div>
@@ -420,7 +400,6 @@
                                         </div>
                                     </div>
                                 </div>
-
                                 <div class="col-12">
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="excSimilar">
@@ -435,12 +414,10 @@
                                         <label class="form-check-label" for="noDuplicate">No Duplicate Characters</label>
                                     </div>
                                 </div>
-
                                 <div class="col-12 d-flex gap-2">
                                     <button class="btn btn-primary" onclick="generatePasswords()">Generate Password</button>
                                     <button class="btn btn-success" onclick="copyText('generatedPasswordsResult', 'Passwords Copied!')">Copy Passwords</button>
                                 </div>
-
                                 <div class="col-12">
                                     <label class="form-label fw-bold">Generated Passwords:</label>
                                     <textarea id="generatedPasswordsResult" class="form-control" rows="5" readonly></textarea>
@@ -453,19 +430,15 @@
                     <div class="tab-pane fade" id="pills-name" role="tabpanel">
                         <div class="card p-4">
                             <h5 class="mb-3 text-primary fw-bold">Worldwide Name Generator</h5>
-                            
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold">Search Country:</label>
                                     <input type="text" id="countrySearchInput" class="form-control" placeholder="Type country name..." oninput="filterCountries()">
                                 </div>
-
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold">Select Country:</label>
-                                    <select id="nameCountrySelect" class="form-select">
-                                    </select>
+                                    <select id="nameCountrySelect" class="form-select"></select>
                                 </div>
-
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold">Gender:</label>
                                     <select id="nameGender" class="form-select">
@@ -474,17 +447,14 @@
                                         <option value="female">Female</option>
                                     </select>
                                 </div>
-
                                 <div class="col-md-6">
                                     <label class="form-label fw-bold">Quantity (1 - 500):</label>
                                     <input type="number" id="nameCount" class="form-control" value="10" min="1" max="500">
                                 </div>
-
                                 <div class="col-12 d-flex gap-2">
                                     <button class="btn btn-primary" onclick="generateNames()">Generate Names</button>
                                     <button class="btn btn-success" onclick="copyText('generatedNamesResult', 'Names Copied!')">Copy All Names</button>
                                 </div>
-
                                 <div class="col-12">
                                     <label class="form-label fw-bold">Generated Names:</label>
                                     <textarea id="generatedNamesResult" class="form-control" rows="8" readonly placeholder="Generated names will appear here..."></textarea>
@@ -497,26 +467,21 @@
                     <div class="tab-pane fade" id="pills-2fa" role="tabpanel">
                         <div class="card p-4">
                             <h5 class="mb-3 text-primary fw-bold">Live 2FA Code Generator</h5>
-                            
                             <div class="mb-3">
                                 <label class="form-label fw-bold text-muted">ENTER 2FA SECRET KEY OR OTPAUTH LINK</label>
                                 <input type="text" id="twoFaInput" class="form-control form-control-lg" placeholder="e.g. W6HP LGY2 NPBN... or otpauth://totp/..." oninput="start2FA()">
                             </div>
-
                             <div id="twoFaResultBox" class="p-4 bg-light rounded text-center border d-none">
                                 <small class="text-muted fw-bold text-uppercase d-block mb-1">Current 2FA Code</small>
                                 <div id="twoFaCode" class="twofa-code-box my-2">------</div>
-                                
                                 <div class="progress mb-3" style="height: 6px;">
                                     <div id="twoFaTimerBar" class="progress-bar bg-primary timer-progress" style="width: 100%;"></div>
                                 </div>
-                                
                                 <div class="d-flex justify-content-between align-items-center">
                                     <span id="twoFaTimerText" class="badge bg-secondary">Next update in 30s</span>
                                     <button class="btn btn-success fw-bold" onclick="copyText('twoFaCode', '2FA Code copied!')">Copy 2FA Code</button>
                                 </div>
                             </div>
-
                             <div id="twoFaErrorBox" class="p-3 bg-danger-subtle text-danger border border-danger rounded mt-3 d-none">
                                 Invalid 2FA Secret Key or Format.
                             </div>
@@ -531,7 +496,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // --- DRAGON MOUSE FOLLOW ANIMATION ---
+        // DRAGON MOUSE ANIMATION
         const canvas = document.getElementById('dragonCanvas');
         const ctx = canvas.getContext('2d');
 
@@ -548,7 +513,6 @@
             mouse.y = e.clientY;
         });
 
-        // Dragon Segmented Spine logic
         const numSegments = 22;
         let dragonHead = { x: canvas.width / 2, y: canvas.height / 2, angle: 0 };
         let dragonBody = [];
@@ -562,7 +526,6 @@
         function animateDragon() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Head tracking mouse smooth movement
             const dx = mouse.x - dragonHead.x;
             const dy = mouse.y - dragonHead.y;
             const dist = Math.hypot(dx, dy);
@@ -574,7 +537,6 @@
                 dragonHead.y += Math.sin(dragonHead.angle) * Math.min(dist * 0.08, 8);
             }
 
-            // Body segments follow head
             let targetX = dragonHead.x;
             let targetY = dragonHead.y;
 
@@ -592,7 +554,6 @@
                 targetY = seg.y;
             }
 
-            // Draw Wings on 3rd Segment
             wingAngle += 0.1;
             const wingWidth = 70 + Math.sin(wingAngle) * 20;
             const wingSeg = dragonBody[2];
@@ -601,7 +562,6 @@
             ctx.translate(wingSeg.x, wingSeg.y);
             ctx.rotate(dragonHead.angle);
             
-            // Wings fill
             ctx.fillStyle = '#dc2626';
             ctx.beginPath();
             ctx.moveTo(0, 0);
@@ -616,7 +576,6 @@
             ctx.fill();
             ctx.restore();
 
-            // Draw Body Spine
             for (let i = numSegments - 1; i >= 0; i--) {
                 const seg = dragonBody[i];
                 ctx.fillStyle = i % 2 === 0 ? '#dc2626' : '#2563eb';
@@ -625,18 +584,15 @@
                 ctx.fill();
             }
 
-            // Draw Head & Glowing Eyes
             ctx.save();
             ctx.translate(dragonHead.x, dragonHead.y);
             ctx.rotate(dragonHead.angle);
 
-            // Head shape
             ctx.fillStyle = '#1e1b4b';
             ctx.beginPath();
             ctx.arc(0, 0, 24, 0, Math.PI * 2);
             ctx.fill();
 
-            // Dragon Snout
             ctx.beginPath();
             ctx.moveTo(10, -12);
             ctx.lineTo(32, 0);
@@ -644,14 +600,12 @@
             ctx.closePath();
             ctx.fill();
 
-            // Red Eyes looking at mouse direction
             ctx.fillStyle = '#ef4444';
             ctx.beginPath();
             ctx.arc(12, -8, 5, 0, Math.PI * 2);
             ctx.arc(12, 8, 5, 0, Math.PI * 2);
             ctx.fill();
 
-            // Horns
             ctx.strokeStyle = '#dc2626';
             ctx.lineWidth = 4;
             ctx.beginPath();
@@ -667,7 +621,7 @@
         }
         animateDragon();
 
-        // --- LIVE CLOCK ---
+        // LIVE CLOCK
         function updateLiveClock() {
             const now = new Date();
             let hours = now.getHours();
@@ -744,7 +698,6 @@
             showToast("Cleared account details!");
         }
 
-        // --- ACCURATE COUNTRY-SPECIFIC NUMBER GENERATOR ---
         function getRandomPhoneNumber() {
             const country = document.getElementById('smsCountrySelect').value;
             let formattedNumber = "";
@@ -909,7 +862,6 @@
             });
         }
 
-        // --- PASSWORD GENERATOR ---
         function generatePasswords() {
             const length = parseInt(document.getElementById('passLength').value) || 12;
             const count = parseInt(document.getElementById('passCount').value) || 1;
@@ -1008,7 +960,6 @@
             showToast("Generated " + count + " Password(s)");
         }
 
-        // --- NAME GENERATOR ---
         function generateNames() {
             const countrySelect = document.getElementById('nameCountrySelect');
             const country = countrySelect.value || "United States";
@@ -1052,7 +1003,7 @@
             showToast("Generated " + count + " Name(s) for " + country);
         }
 
-        // --- EMAIL GETTER ---
+        // --- EMAIL GETTER (FIXED RESET LOGIC) ---
         document.getElementById('accountData').addEventListener('input', function(e) {
             const val = e.target.value.trim();
             const emailBox = document.getElementById('emailBox');
@@ -1073,6 +1024,11 @@
             const emailPreviewBox = document.getElementById('emailPreviewBox');
             const errorBox = document.getElementById('errorBox');
             
+            // ১. পূর্বের মানসমূহ স্ক্রিন থেকে ক্লিয়ার করা
+            document.getElementById('codeValue').innerText = '';
+            document.getElementById('linkValue').innerText = '';
+            document.getElementById('emailHtmlContainer').innerHTML = '';
+
             resultBox.classList.add('d-none');
             linkBox.classList.add('d-none');
             emailPreviewBox.classList.add('d-none');
@@ -1127,7 +1083,7 @@
             }
         }
 
-        // --- 2FA GENERATOR ---
+        // 2FA GENERATOR
         let twoFaInterval = null;
 
         function start2FA() {
